@@ -461,7 +461,7 @@ def main(epochs=25):
         args.load_state = args.load_full_state
 
     # add args.device
-    args.device = torch.device('cpu')
+    args.device = torch.device('cuda')
     # if not args.disable_cuda and torch.cuda.is_available():
     #     args.device = torch.device('cuda')
 
@@ -525,6 +525,7 @@ def main(epochs=25):
         with open(args.load_state, 'rb') as f:
             checkpoint = torch.load(f)
         pretrained_state_dict = checkpoint['state_dict']
+        model.to(args.device)
         model.load_state_dict(pretrained_state_dict, strict=args.load_state_strict)
 
         if args.load_full_state:
