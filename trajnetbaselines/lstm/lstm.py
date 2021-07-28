@@ -36,7 +36,7 @@ class LSTM(torch.nn.Module):
             if False, the interaction vector is added to the LSTM hidden-state
         goal_dim : Embedding dimension of the unit vector pointing towards the goal
         goal_flag: Bool
-            if True, the embedded goal vector is concatenated to the input embedding of LSTM 
+            if True, the embedded goal vector is concatenated to the input embedding of LSTM
         """
 
         super(LSTM, self).__init__()
@@ -58,8 +58,8 @@ class LSTM(torch.nn.Module):
         ## Pooling
         pooling_dim = 0
         if pool is not None and self.pool_to_input:
-            pooling_dim = self.pool.out_dim 
-        
+            pooling_dim = self.pool.out_dim
+
         ## LSTMs
         self.encoder = torch.nn.LSTMCell(self.embedding_dim + goal_rep_dim + pooling_dim, self.hidden_dim)
         self.decoder = torch.nn.LSTMCell(self.embedding_dim + goal_rep_dim + pooling_dim, self.hidden_dim)
@@ -70,7 +70,7 @@ class LSTM(torch.nn.Module):
 
     def step(self, lstm, hidden_cell_state, obs1, obs2, goals, batch_split):
         """Do one step of prediction: two inputs to one normal prediction.
-        
+
         Parameters
         ----------
         lstm: torch nn module [Encoder / Decoder]
@@ -83,13 +83,13 @@ class LSTM(torch.nn.Module):
             Current x-y positions of the pedestrians
         goals : Tensor [num_tracks, 2]
             Goal coordinates of the pedestrians
-        
+
         Returns
         -------
         hidden_cell_state : tuple (hidden_state, cell_state)
             Updated hidden_cell_state of the pedestrians
         normals : Tensor [num_tracks, 5]
-            Parameters of a multivariate normal of the predicted position 
+            Parameters of a multivariate normal of the predicted position
             with respect to the current position
         """
         num_tracks = len(obs2)
@@ -165,8 +165,8 @@ class LSTM(torch.nn.Module):
         return hidden_cell_state, normal
 
     def forward(self, observed, goals, batch_split, prediction_truth=None, n_predict=None):
-        """Forecast the entire sequence 
-        
+        """Forecast the entire sequence
+
         Parameters
         ----------
         observed : Tensor [obs_length, num_tracks, 2]
@@ -175,7 +175,7 @@ class LSTM(torch.nn.Module):
             Goal coordinates of the pedestrians
         batch_split : Tensor [batch_size + 1]
             Tensor defining the split of the batch.
-            Required to identify the tracks of to the same scene        
+            Required to identify the tracks of to the same scene
         prediction_truth : Tensor [pred_length - 1, num_tracks, 2]
             Prediction sequences of x-y coordinates of the pedestrians
             Helps in teacher forcing wrt neighbours positions during training
@@ -274,7 +274,7 @@ class LSTMPredictor(object):
     @staticmethod
     def load(filename):
         with open(filename, 'rb') as f:
-            return torch.load(f)
+            return torch.load(f, map_location=torch.device('cpu'))
 
 
     def __call__(self, paths, scene_goal, n_predict=12, modes=1, predict_all=True, obs_length=9, start_length=0, args=None):
@@ -287,7 +287,7 @@ class LSTMPredictor(object):
 
             if args.normalize_scene:
                 xy, rotation, center, scene_goal = center_scene(xy, obs_length, goals=scene_goal)
-            
+
             xy = torch.Tensor(xy)  #.to(self.device)
             scene_goal = torch.Tensor(scene_goal) #.to(device)
             batch_split = torch.Tensor(batch_split).long()

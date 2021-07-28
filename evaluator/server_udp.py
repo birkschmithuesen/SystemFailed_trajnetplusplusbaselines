@@ -141,6 +141,10 @@ def serve_forever(args=None):
 
             import timeit
 
+            UDP_IP = "127.0.0.1"
+            UDP_PORT = 5005
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
             print("Starting prediction server")
             while True:
                 for (_, _, paths), scene_goal in zip(scenes, scene_goals):
@@ -163,8 +167,8 @@ def serve_forever(args=None):
                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
                                                             observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
                    # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
-                   print(trajnetplusplustools.writers.trajnet(scenerow))
-                   print('\n')
+                   msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
+                   sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
 
                    for m in range(len(predictions)):
                        prediction, neigh_predictions = predictions[m]
@@ -172,8 +176,8 @@ def serve_forever(args=None):
                        for i in range(len(prediction)):
                            track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
                                                                  prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
-                           print(trajnetplusplustools.writers.trajnet(track))
-                           print('\n')
+                           msg = trajnetplusplustools.writers.trajnet(track) + '\n'
+                           sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
 
                        ## Write Neighbours (if non-empty)
                        if len(neigh_predictions):
@@ -182,8 +186,8 @@ def serve_forever(args=None):
                                for j in range(len(neigh)):
                                    track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
                                                                          neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
-                                   print(trajnetplusplustools.writers.trajnet(track))
-                                   print('\n')
+                                   msg = trajnetplusplustools.writers.trajnet(track) + '\n'
+                                   sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
 
 
             with open(args.path + '{}/{}'.format(model_name, name), "a") as myfile:
