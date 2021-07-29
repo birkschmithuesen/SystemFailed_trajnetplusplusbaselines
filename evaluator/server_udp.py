@@ -39,7 +39,7 @@ def make_timestamp():
     return str(round(time.time() * 1000))
 
 def cursor_to_row(timestamp, cursor):
-    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=cursor.position[0], y=cursor.position[1])
+    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=10*cursor.position[0], y=10*cursor.position[1])
 
 def process_scene(predictor, model_name, paths, scene_goal, args):
     ## For each scene, get predictions
@@ -161,8 +161,8 @@ def serve_forever(args=None):
 
             import timeit
 
-            UDP_IP = "127.0.0.1"
-            UDP_PORT = 5005
+            UDP_IP = "192.168.2.107"
+            UDP_PORT = 6666
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             def print_cursor(cursor):
@@ -177,7 +177,7 @@ def serve_forever(args=None):
                 def put_cursor(self, cursor):
                     tmstmp = make_timestamp()
                     if self.current_timestamp != tmstmp:
-                        if self.frame_count > args.obs_length:
+                        if self.frame_count > args.obs_length * 5:
                             paths = self.get_paths()
                             self.make_prediction(paths)
                             self.frame_count = 0
@@ -210,7 +210,7 @@ def serve_forever(args=None):
                             counter += 1
                         index = person_to_index[cursor.session_id]
                         paths[index].append(row)
-                    paths_filtered = [path for path in paths if len(path) >= args.obs_length]
+                    paths_filtered = [path[0::5] for path in paths if len(path[0::5]) >= args.obs_length]
 
                     if len(paths_filtered) < 1:
                         for cursor in cursors:
@@ -237,6 +237,8 @@ def serve_forever(args=None):
                     print(paths)
                     print(prediction_list)
 
+                    msg = ""
+
                     ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
                     scene_id = 1
                     predictions = prediction_list
@@ -252,9 +254,11 @@ def serve_forever(args=None):
                     scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
                                                             observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
                     # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
+                    """
                     msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
                     sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
                     print(msg)
+                    """
 
                     for m in range(len(predictions)):
                        prediction, neigh_predictions = predictions[m]
@@ -262,9 +266,9 @@ def serve_forever(args=None):
                        for i in range(len(prediction)):
                            track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
                                                                  prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
-                           msg = trajnetplusplustools.writers.trajnet(track) + '\n'
-                           sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                           print(msg)
+                           msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                           #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                           #print(msg)
 
                        ## Write Neighbours (if non-empty)
                        if len(neigh_predictions):
@@ -273,10 +277,14 @@ def serve_forever(args=None):
                                for j in range(len(neigh)):
                                    track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
                                                                          neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
-                                   msg = trajnetplusplustools.writers.trajnet(track) + '\n'
-                                   sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                                   print(msg)
+                                   msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                                   #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                                   #print(msg)
                     #sys.exit()
+                    msg = "[{}]".format(msg[:-2])
+                    sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                    print(len(bytes(msg, "utf-8")))
+                    print(msg)
 
             client = TuioClient(("localhost",3333))
             t = Thread(target=client.start)
