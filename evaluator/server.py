@@ -140,6 +140,9 @@ def serve_forever(args=None):
             scenes = tqdm(scenes)
 
             import timeit
+            UDP_IP = "127.0.0.1"
+            UDP_PORT = 5005
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             print("Starting prediction server")
             while True:
@@ -163,6 +166,7 @@ def serve_forever(args=None):
                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
                                                             observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
                    # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
+
                    print(trajnetplusplustools.writers.trajnet(scenerow))
                    print('\n')
 
@@ -184,6 +188,13 @@ def serve_forever(args=None):
                                                                          neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
                                    print(trajnetplusplustools.writers.trajnet(track))
                                    print('\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
+                   print('--------------------------------------------------------------------------------\n')
 
 
             with open(args.path + '{}/{}'.format(model_name, name), "a") as myfile:

@@ -272,12 +272,12 @@ class LSTMPredictor(object):
             torch.save(state, f)
 
     @staticmethod
-    def load(filename):
+    def load(filename, device="cpu"):
         with open(filename, 'rb') as f:
-            return torch.load(f, map_location=torch.device('cpu'))
+            return torch.load(f, map_location=device)
 
 
-    def __call__(self, paths, scene_goal, n_predict=12, modes=1, predict_all=True, obs_length=9, start_length=0, args=None):
+    def __call__(self, paths, scene_goal, n_predict=12, modes=1, predict_all=True, obs_length=9, start_length=0, args=None, device="cpu"):
         self.model.eval()
         # self.model.train()
         with torch.no_grad():
@@ -288,15 +288,15 @@ class LSTMPredictor(object):
             if args.normalize_scene:
                 xy, rotation, center, scene_goal = center_scene(xy, obs_length, goals=scene_goal)
 
-            xy = torch.Tensor(xy)  #.to(self.device)
-            scene_goal = torch.Tensor(scene_goal) #.to(device)
-            batch_split = torch.Tensor(batch_split).long()
+            xy = torch.Tensor(xy).to(device)
+            scene_goal = torch.Tensor(scene_goal).to(device)
+            batch_split = torch.Tensor(batch_split).long().to(device)
 
             multimodal_outputs = {}
             for num_p in range(modes):
                 # _, output_scenes = self.model(xy[start_length:obs_length], scene_goal, batch_split, xy[obs_length:-1].clone())
                 _, output_scenes = self.model(xy[start_length:obs_length], scene_goal, batch_split, n_predict=n_predict)
-                output_scenes = output_scenes.numpy()
+                output_scenes = output_scenes.cpu().numpy()
                 if args.normalize_scene:
                     output_scenes = augmentation.inverse_scene(output_scenes, rotation, center)
                 output_primary = output_scenes[-n_predict:, 0]

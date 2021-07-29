@@ -2,10 +2,18 @@ import os
 from collections import OrderedDict
 import argparse
 import socket
+import queue
+import sys
 
 import pickle
 from joblib import Parallel, delayed
 import scipy
+
+from pythontuio import TuioClient
+from pythontuio import Cursor
+from pythontuio import TuioListener
+from threading import Thread
+import time
 
 
 import trajnetplusplustools
@@ -26,6 +34,12 @@ import trajnetbaselines
 import multiprocessing
 from joblib import Parallel, delayed
 from tqdm import tqdm
+
+def make_timestamp():
+    return str(round(time.time() * 1000))
+
+def cursor_to_row(timestamp, cursor):
+    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=cursor.position[0], y=cursor.position[1])
 
 def process_scene(predictor, model_name, paths, scene_goal, args):
     ## For each scene, get predictions
@@ -74,6 +88,12 @@ def serve_forever(args=None):
             # Loading the APPROPRIATE model
             ## Keep Adding Different Model Architectures to this List
             print("Model Name: ", model_name)
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+
+            device_name = "cpu"
+            if(args.gpu):
+                device_name = "cuda"
             goal_flag = False
             if 'kf' in model_name:
                 print("Kalman")
@@ -90,19 +110,19 @@ def serve_forever(args=None):
             elif 'sgan' in model_name:
                 print("SGAN")
                 predictor = trajnetbaselines.sgan.SGANPredictor.load(model)
-                device = torch.device('cpu')
+                device = torch.device(device_name)
                 predictor.model.to(device)
                 goal_flag = predictor.model.generator.goal_flag
             elif 'vae' in model_name:
                 print("VAE")
                 predictor = trajnetbaselines.vae.VAEPredictor.load(model)
-                device = torch.device('cpu')
+                device = torch.device(device_name)
                 predictor.model.to(device)
                 goal_flag = predictor.model.goal_flag
             elif 'lstm' in model_name:
                 print("LSTM")
                 predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
-                device = torch.device('cpu')
+                device = torch.device(device_name)
                 predictor.model.to(device)
                 goal_flag = predictor.model.goal_flag
             else:
@@ -145,32 +165,96 @@ def serve_forever(args=None):
             UDP_PORT = 5005
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-            print("Starting prediction server")
-            while True:
-                for (_, _, paths), scene_goal in zip(scenes, scene_goals):
-                   start = timeit.default_timer()
-                   prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args)
-                   stop = timeit.default_timer()
-                   print('Prediction time: ', stop - start)
-                   ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
-                   scene_id = 1
-                   predictions = prediction_list
-                   observed_path = paths[0]
-                   frame_diff = observed_path[1].frame - observed_path[0].frame
-                   first_frame = observed_path[args.obs_length-1].frame + frame_diff
-                   ped_id = observed_path[0].pedestrian
-                   ped_id_ = []
-                   for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
+            def print_cursor(cursor):
+                print(str(round(time.time() * 1000)) + '|' + str(cursor.session_id) + '|' + str(cursor.position[0]) + '|' + str(cursor.position[1]))
+
+            class MyListener(TuioListener):
+                def __init__(self):
+                    super().__init__()
+                    self.q = queue.Queue()
+                    self.current_timestamp = ""
+                    self.frame_count = 0
+                def put_cursor(self, cursor):
+                    tmstmp = make_timestamp()
+                    if self.current_timestamp != tmstmp:
+                        if self.frame_count > args.obs_length:
+                            paths = self.get_paths()
+                            self.make_prediction(paths)
+                            self.q.join()
+                            self.frame_count = 0
+                        else:
+                            self.frame_count += 1
+                    self.q.put((tmstmp, cursor))
+                def add_tuio_cursor(self, cursor: Cursor):
+                    print("detect a new Cursor")
+                    self.put_cursor(cursor)
+                def update_tuio_cursor(self, cursor: Cursor):
+                    self.put_cursor(cursor)
+                def remove_tuio_cursor(self, cursor: Cursor):
+                    print("a cursor was removed")
+                    self.put_cursor(cursor)
+
+                def get_paths(self):
+                    cursors = []
+                    paths = []
+                    while not self.q.empty():
+                        cursors.append(self.q.get())
+                        self.q.task_done()
+                    person_to_index = {}
+                    counter = 0
+                    for (timestamp, cursor) in cursors:
+                        row = cursor_to_row(timestamp, cursor)
+                        if not cursor.session_id in person_to_index:
+                            paths.append([])
+                            person_to_index[cursor.session_id] = counter
+                            counter += 1
+                        index = person_to_index[cursor.session_id]
+                        paths[index].append(row)
+                    for index in range(len(paths)):
+                        if len(paths[index]) < args.obs_length:
+                            del paths[index]
+                    return paths
+
+                def make_prediction(self, paths):
+                    if len(paths) < 1:
+                        print("No paths that are long enough")
+                        return
+                    start = timeit.default_timer()
+                    scene_goal = []
+                    for i in range(len(paths)):
+                        scene_goal.append([.0, .0])
+                    prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
+                    stop = timeit.default_timer()
+                    #print(prediction_list)
+                    print('Prediction time: ', stop - start)
+                    print("Length paths")
+                    print(len(paths))
+                    print("Length of path in paths")
+                    for path in paths:
+                        print(len(path))
+                    print(paths)
+                    print(prediction_list)
+
+                    ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
+                    scene_id = 1
+                    predictions = prediction_list
+                    observed_path = paths[0]
+                    frame_diff = observed_path[1].frame - observed_path[0].frame
+                    first_frame = observed_path[args.obs_length-1].frame + frame_diff
+                    ped_id = observed_path[0].pedestrian
+                    ped_id_ = []
+                    for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
                        ped_id_.append(paths[j+1][0].pedestrian)
 
-                   ## Write SceneRow
-                   scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
+                    ## Write SceneRow
+                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
                                                             observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
-                   # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
-                   msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
-                   sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                    # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
+                    msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
+                    sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                    print(msg)
 
-                   for m in range(len(predictions)):
+                    for m in range(len(predictions)):
                        prediction, neigh_predictions = predictions[m]
                        ## Write Primary
                        for i in range(len(prediction)):
@@ -178,6 +262,7 @@ def serve_forever(args=None):
                                                                  prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
                            msg = trajnetplusplustools.writers.trajnet(track) + '\n'
                            sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                           print(msg)
 
                        ## Write Neighbours (if non-empty)
                        if len(neigh_predictions):
@@ -188,7 +273,16 @@ def serve_forever(args=None):
                                                                          neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
                                    msg = trajnetplusplustools.writers.trajnet(track) + '\n'
                                    sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                                   print(msg)
+                    #sys.exit()
 
+            client = TuioClient(("localhost",3333))
+            t = Thread(target=client.start)
+            listener = MyListener()
+            client.add_listener(listener)
+            t.start()
+
+"""
 
             with open(args.path + '{}/{}'.format(model_name, name), "a") as myfile:
                 ## Get all predictions in parallel. Faster!
@@ -232,7 +326,7 @@ def serve_forever(args=None):
                                     myfile.write(trajnetplusplustools.writers.trajnet(track))
                                     myfile.write('\n')
 
-
+"""
 def main():
 
     parser = argparse.ArgumentParser()
@@ -262,6 +356,8 @@ def main():
                         help='augment scenes')
     parser.add_argument('--modes', default=1, type=int,
                         help='number of modes to predict')
+    parser.add_argument('--gpu', default=False, type=bool,
+                        help='if should use GPU')
     args = parser.parse_args()
 
     scipy.seterr('ignore')

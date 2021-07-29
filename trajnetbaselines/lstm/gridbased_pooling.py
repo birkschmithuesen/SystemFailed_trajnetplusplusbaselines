@@ -27,7 +27,7 @@ class GridBasedPooling(torch.nn.Module):
             dimension of resultant interaaction vector
         type_: ('occupancy', 'directional', 'social', 'dir_social')
             type of grid-based pooling
-        front: Bool 
+        front: Bool
             if True, pools neighbours only in the front of pedestrian
         embedding_arch: ('one_layer', 'two_layer', 'three_layer', 'lstm_layer')
             architecture to encoder grid tensor
@@ -35,7 +35,7 @@ class GridBasedPooling(torch.nn.Module):
             autoencoder to reduce dimensionality of grid
         constant: int
             background values of pooling grid
-        norm: Scalar 
+        norm: Scalar
             normalization scheme of pool grid [Default: None]
         """
         super(GridBasedPooling, self).__init__()
@@ -93,7 +93,7 @@ class GridBasedPooling(torch.nn.Module):
 
     def forward_grid(self, grid):
         """ Encodes the generated grid tensor
-        
+
         Parameters
         ----------
         grid: [num_tracks, self.pooling_dim, self.n, self.n]
@@ -115,7 +115,7 @@ class GridBasedPooling(torch.nn.Module):
             grid = self.pretrained_model(grid)
 
         ## Normalize Grid (if necessary)
-        grid = grid.view(num_tracks, -1)
+        grid = grid.reshape(num_tracks, -1)
         ## Normalization schemes
         if self.norm == 1:
             # "Global Norm"
@@ -169,7 +169,7 @@ class GridBasedPooling(torch.nn.Module):
         if num_tracks == 1:
             return self.occupancy(obs2, None)
 
-        ## Generate values to input in directional grid tensor (relative velocities in this case) 
+        ## Generate values to input in directional grid tensor (relative velocities in this case)
         vel = obs2 - obs1
         unfolded = vel.unsqueeze(0).repeat(vel.size(0), 1, 1)
         ## [num_tracks, 2] --> [num_tracks, num_tracks, 2]
@@ -190,12 +190,12 @@ class GridBasedPooling(torch.nn.Module):
         if num_tracks == 1:
             return self.occupancy(obs2, None, past_obs=obs1)
 
-        ## Generate values to input in hiddenstate grid tensor (compressed hidden-states in this case) 
+        ## Generate values to input in hiddenstate grid tensor (compressed hidden-states in this case)
         ## [num_tracks, hidden_dim] --> [num_tracks, num_tracks-1, pooling_dim]
         hidden_state_grid = hidden_state.repeat(num_tracks, 1).view(num_tracks, num_tracks, -1)
         hidden_state_grid = hidden_state_grid[~torch.eye(num_tracks).bool()].reshape(num_tracks, num_tracks-1, -1)
-        hidden_state_grid = self.hidden_dim_encoding(hidden_state_grid)
-        
+        hidden_state_grid = self.hidden_dim_encoding(hidden_state_grid).to("cuda")
+
         ## Generate Occupancy Map
         return self.occupancy(obs2, hidden_state_grid, past_obs=obs1)
 
@@ -208,7 +208,7 @@ class GridBasedPooling(torch.nn.Module):
         if num_tracks == 1:
             return self.occupancy(obs2, None)
 
-        ## Generate values to input in directional grid tensor (relative velocities in this case) 
+        ## Generate values to input in directional grid tensor (relative velocities in this case)
         vel = obs2 - obs1
         unfolded = vel.unsqueeze(0).repeat(vel.size(0), 1, 1)
         ## [num_tracks, 2] --> [num_tracks, num_tracks, 2]
@@ -217,7 +217,7 @@ class GridBasedPooling(torch.nn.Module):
         ## [num_tracks, num_tracks, 2] --> [num_tracks, num_tracks-1, 2]
         relative = relative[~torch.eye(num_tracks).bool()].reshape(num_tracks, num_tracks-1, 2)
 
-        ## Generate values to input in hiddenstate grid tensor (compressed hidden-states in this case) 
+        ## Generate values to input in hiddenstate grid tensor (compressed hidden-states in this case)
         ## [num_tracks, hidden_dim] --> [num_tracks, num_tracks-1, pooling_dim]
         hidden_state_grid = hidden_state.repeat(num_tracks, 1).view(num_tracks, num_tracks, -1)
         hidden_state_grid = hidden_state_grid[~torch.eye(num_tracks).bool()].reshape(num_tracks, num_tracks-1, -1)
@@ -392,7 +392,7 @@ class GridBasedPooling(torch.nn.Module):
         return interaction_vector
 
     def make_grid(self, obs):
-        """ Make the grids for all time-steps together 
+        """ Make the grids for all time-steps together
             Only supports Occupancy and Directional pooling
         """
         if obs.ndim == 2:
