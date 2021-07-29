@@ -180,7 +180,6 @@ def serve_forever(args=None):
                         if self.frame_count > args.obs_length:
                             paths = self.get_paths()
                             self.make_prediction(paths)
-                            self.q.join()
                             self.frame_count = 0
                         else:
                             self.frame_count += 1
@@ -200,6 +199,7 @@ def serve_forever(args=None):
                     while not self.q.empty():
                         cursors.append(self.q.get())
                         self.q.task_done()
+                    self.q.join()
                     person_to_index = {}
                     counter = 0
                     for (timestamp, cursor) in cursors:
@@ -210,15 +210,17 @@ def serve_forever(args=None):
                             counter += 1
                         index = person_to_index[cursor.session_id]
                         paths[index].append(row)
-                    for index in range(len(paths)):
-                        if len(paths[index]) < args.obs_length:
-                            del paths[index]
-                    return paths
+                    paths_filtered = [path for path in paths if len(path) >= args.obs_length]
+
+                    if len(paths_filtered) < 1:
+                        for cursor in cursors:
+                            self.q.put(cursor)
+                    return paths_filtered
 
                 def make_prediction(self, paths):
                     if len(paths) < 1:
                         print("No paths that are long enough")
-                        return
+                        return False
                     start = timeit.default_timer()
                     scene_goal = []
                     for i in range(len(paths)):
