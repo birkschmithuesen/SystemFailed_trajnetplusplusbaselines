@@ -424,15 +424,19 @@ def main():
             submit_datasets = [args.path + name + '/' + f for f in list_sub if 'collision_test.ndjson' not in f]
             true_datasets = [args.path.replace('pred', 'private') + f for f in list_sub if 'collision_test.ndjson' not in f]
 
+            print(submit_datasets)
+            print(true_datasets)
+
             ## Evaluate submitted datasets with True Datasets [The main eval function]
             # results = {submit_datasets[i].replace(args.path, '').replace('.ndjson', ''):
             #             eval(true_datasets[i], submit_datasets[i], args)
             #            for i in range(len(true_datasets))}
 
-            results_list = Parallel(n_jobs=4)(delayed(eval)(true_datasets[i], submit_datasets[i], args)
+            results_list = Parallel(n_jobs=1)(delayed(eval)(true_datasets[i], submit_datasets[i], args)
                                                             for i in range(len(true_datasets)))
-            results = {submit_datasets[i].replace(args.path, '').replace('.ndjson', ''): results_list[i] 
-                       for i in range(len(true_datasets))}
+            results = {submit_datasets[i].replace(args.path, '').replace('.ndjson', ''): results_list[i]
+                       for i in range(len(true_datasets))}            ## Generate results
+
 
             # print(results)
             ## Generate results

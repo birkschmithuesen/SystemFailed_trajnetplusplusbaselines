@@ -131,7 +131,7 @@ class Trainer(object):
                 batch_scene = np.concatenate(batch_scene, axis=1)
                 batch_scene_goal = np.concatenate(batch_scene_goal, axis=0)
                 batch_split = np.cumsum(batch_split)
-                
+
                 batch_scene = torch.Tensor(batch_scene).to(self.device)
                 batch_scene_goal = torch.Tensor(batch_scene_goal).to(self.device)
                 batch_split = torch.Tensor(batch_split).to(self.device).long()
@@ -206,11 +206,11 @@ class Trainer(object):
                 batch_scene = np.concatenate(batch_scene, axis=1)
                 batch_scene_goal = np.concatenate(batch_scene_goal, axis=0)
                 batch_split = np.cumsum(batch_split)
-                
+
                 batch_scene = torch.Tensor(batch_scene).to(self.device)
                 batch_scene_goal = torch.Tensor(batch_scene_goal).to(self.device)
                 batch_split = torch.Tensor(batch_split).to(self.device).long()
-                
+
                 loss_val_batch, loss_test_batch = self.val_batch(batch_scene, batch_scene_goal, batch_split)
                 val_loss += loss_val_batch
                 test_loss += loss_test_batch
@@ -418,7 +418,6 @@ def main(epochs=25):
     hyperparameters.add_argument('--col_gamma', default=2.0, type=float,
                                  help='hyperparameter in collision loss')
 
-
     args = parser.parse_args()
 
     ## Fixed set of scenes if sampling
@@ -461,9 +460,9 @@ def main(epochs=25):
         args.load_state = args.load_full_state
 
     # add args.device
-    args.device = torch.device('cuda')
-    # if not args.disable_cuda and torch.cuda.is_available():
-    #     args.device = torch.device('cuda')
+    if torch.cuda.is_available():
+        print("Training on GPU")
+        args.device = torch.device('cuda')
 
     args.path = 'DATA_BLOCK/' + args.path
     ## Prepare data

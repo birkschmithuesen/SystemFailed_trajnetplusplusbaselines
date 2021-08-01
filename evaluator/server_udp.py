@@ -39,7 +39,7 @@ def make_timestamp():
     return str(round(time.time() * 1000))
 
 def cursor_to_row(timestamp, cursor):
-    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=10*cursor.position[0], y=10*cursor.position[1])
+    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=50*cursor.position[0], y=50*cursor.position[1])
 
 def process_scene(predictor, model_name, paths, scene_goal, args):
     ## For each scene, get predictions
@@ -161,7 +161,7 @@ def serve_forever(args=None):
 
             import timeit
 
-            UDP_IP = "192.168.2.107"
+            UDP_IP = "localhost"
             UDP_PORT = 6666
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

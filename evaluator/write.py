@@ -24,7 +24,7 @@ def process_scene(predictor, model_name, paths, scene_goal, args):
     elif 'cv' in model_name:
         predictions = predictor(paths, n_predict=args.pred_length, obs_length=args.obs_length)
     else:
-        predictions = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args)
+        predictions = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, device="cuda", args=args)
     return predictions
 
 def main(args=None):
@@ -98,7 +98,7 @@ def main(args=None):
             elif 'lstm' in model_name:
                 print("LSTM")
                 predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
-                device = torch.device('cpu')
+                device = torch.device('cuda')
                 predictor.model.to(device)
                 goal_flag = predictor.model.goal_flag
             else:
@@ -136,7 +136,7 @@ def main(args=None):
             scenes = tqdm(scenes)
             with open(args.path + '{}/{}'.format(model_name, name), "a") as myfile:
                 ## Get all predictions in parallel. Faster!
-                pred_list = Parallel(n_jobs=12)(delayed(process_scene)(predictor, model_name, paths, scene_goal, args)
+                pred_list = Parallel(n_jobs=1)(delayed(process_scene)(predictor, model_name, paths, scene_goal, args)
                                                 for (_, _, paths), scene_goal in zip(scenes, scene_goals))
 
                 ## Write All Predictions
@@ -151,7 +151,7 @@ def main(args=None):
                         ped_id_.append(paths[j+1][0].pedestrian)
 
                     ## Write SceneRow
-                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame, 
+                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
                                                              observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
                     # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
                     myfile.write(trajnetplusplustools.writers.trajnet(scenerow))

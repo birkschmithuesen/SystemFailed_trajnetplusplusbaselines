@@ -32,7 +32,7 @@ def main():
     else:
         scenes = reader.scenes(randomize=args.random)
 
-    ## Reader Predictions 
+    ## Reader Predictions
     reader_list = {}
     label_dict = {}
     for i, dataset_file in enumerate(args.dataset_files[1:]):
@@ -56,7 +56,7 @@ def main():
         output_filename = None
         if args.output is not None:
             output_filename = '{}.scene{}.png'.format(args.output, scene_id)
-        with show.predicted_paths(paths, pred_paths, output_file=output_filename):
+        with show.predicted_paths(paths, pred_paths, pred_neigh_paths, output_file=output_filename):
             pass
         # with show.predicted_paths(paths, pred_paths, pred_neigh_paths):
         #     pass
