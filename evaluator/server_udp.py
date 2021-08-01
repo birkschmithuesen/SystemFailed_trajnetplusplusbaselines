@@ -158,13 +158,14 @@ def serve_forever(args=None):
             # Shape of primary_prediction: Tensor of Shape (Prediction length, 2)
             # Shape of Neighbour_prediction: Tensor of Shape (Prediction length, n_tracks - 1, 2).
             # (See LSTMPredictor.py for more details)
-            scenes = tqdm(scenes)
 
             import timeit
 
             UDP_IP = "localhost"
             UDP_PORT = 6666
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+
 
             def print_cursor(cursor):
                 print(str(round(time.time() * 1000)) + '|' + str(cursor.session_id) + '|' + str(cursor.position[0]) + '|' + str(cursor.position[1]))
@@ -176,6 +177,9 @@ def serve_forever(args=None):
                     self.bundle = []
                     self.fseq = 0
                     self.frame_count = 0
+                    self.prev_frame_time = 0
+                    self.new_frame_time = 0
+                    self.ml_fps = 0
 
                 def put_cursor(self, cursor):
                     self.bundle.append(cursor)
@@ -193,14 +197,25 @@ def serve_forever(args=None):
                     if cursor.session_id in self.people:
                         del self.people[cursor.session_id]
 
+
                 def refresh(self, fseq):
+                    self.new_frame_time = time.time()
+                    fps = 1/(self.new_frame_time - self.prev_frame_time)
+                    fps = int(fps)
+
+                    self.prev_frame_time = self.new_frame_time
                     while len(self.bundle) > 0:
                         cursor = self.bundle.pop()
                         item = (fseq, cursor)
                         self.people[cursor.session_id].append(item)
                     paths = self.get_paths()
                     if paths:
+                        new_frame_time = time.time()
                         self.make_prediction(paths)
+                        self.ml_fps = 1/(time.time() - new_frame_time)
+
+                    sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r" % (fps, self.ml_fps) )
+                    sys.stdout.flush()
 
                 def get_paths(self):
                     cursors = []
@@ -237,6 +252,7 @@ def serve_forever(args=None):
                     prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
                     stop = timeit.default_timer()
                     #print(prediction_list)
+                    """
                     print('Prediction time: ', stop - start)
                     print("Length paths")
                     print(len(paths))
@@ -245,6 +261,7 @@ def serve_forever(args=None):
                         print(len(path))
                     print(paths)
                     print(prediction_list)
+                    """
 
                     msg = ""
 
@@ -292,8 +309,10 @@ def serve_forever(args=None):
                     #sys.exit()
                     msg = "[{}]".format(msg[:-2])
                     sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                    """
                     print(len(bytes(msg, "utf-8")))
                     print(msg)
+                    """
 
             client = TuioClient(("localhost",3333))
             t = Thread(target=client.start)
