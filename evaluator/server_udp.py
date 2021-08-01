@@ -2,6 +2,7 @@ import os
 from collections import OrderedDict
 import argparse
 import socket
+from collections import deque
 import queue
 import sys
 
@@ -171,37 +172,47 @@ def serve_forever(args=None):
             class MyListener(TuioListener):
                 def __init__(self):
                     super().__init__()
-                    self.q = queue.Queue()
+                    self.people = {}
                     self.bundle = []
                     self.fseq = 0
                     self.frame_count = 0
+
                 def put_cursor(self, cursor):
                     self.bundle.append(cursor)
+
                 def add_tuio_cursor(self, cursor: Cursor):
-                    print("detect a new Cursor")
+                    self.people[cursor.session_id] = deque(maxlen=args.obs_length)
                     self.put_cursor(cursor)
+
                 def update_tuio_cursor(self, cursor: Cursor):
+                    if not cursor.session_id in self.people:
+                        self.add_tuio_cursor(cursor)
                     self.put_cursor(cursor)
+
                 def remove_tuio_cursor(self, cursor: Cursor):
-                    print("a cursor was removed")
-                    self.put_cursor(cursor)
+                    if cursor.session_id in self.people:
+                        del self.people[cursor.session_id]
+
                 def refresh(self, fseq):
                     while len(self.bundle) > 0:
-                        self.q.put((fseq, self.bundle.pop()))
-                    if self.frame_count > args.obs_length * 5:
-                        paths = self.get_paths()
+                        cursor = self.bundle.pop()
+                        item = (fseq, cursor)
+                        self.people[cursor.session_id].append(item)
+                    paths = self.get_paths()
+                    if paths:
                         self.make_prediction(paths)
-                        self.frame_count = 0
-                    else:
-                        self.frame_count += 1
 
                 def get_paths(self):
                     cursors = []
                     paths = []
-                    while not self.q.empty():
-                        cursors.append(self.q.get())
-                        self.q.task_done()
-                    self.q.join()
+                    for person_id, dq in self.people.items():
+                        if len(dq) == args.obs_length:
+                            for cursor in dq:
+                                cursors.append(cursor)
+
+                    if len(cursors) == 0:
+                        return None
+
                     person_to_index = {}
                     counter = 0
                     for (timestamp, cursor) in cursors:
@@ -212,12 +223,8 @@ def serve_forever(args=None):
                             counter += 1
                         index = person_to_index[cursor.session_id]
                         paths[index].append(row)
-                    paths_filtered = [path[0::5] for path in paths if len(path[0::5]) >= args.obs_length]
 
-                    if len(paths_filtered) < 1:
-                        for cursor in cursors:
-                            self.q.put(cursor)
-                    return paths_filtered
+                    return paths
 
                 def make_prediction(self, paths):
                     if len(paths) < 1:
