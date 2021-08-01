@@ -172,18 +172,11 @@ def serve_forever(args=None):
                 def __init__(self):
                     super().__init__()
                     self.q = queue.Queue()
-                    self.current_timestamp = ""
+                    self.bundle = []
+                    self.fseq = 0
                     self.frame_count = 0
                 def put_cursor(self, cursor):
-                    tmstmp = make_timestamp()
-                    if self.current_timestamp != tmstmp:
-                        if self.frame_count > args.obs_length * 5:
-                            paths = self.get_paths()
-                            self.make_prediction(paths)
-                            self.frame_count = 0
-                        else:
-                            self.frame_count += 1
-                    self.q.put((tmstmp, cursor))
+                    self.bundle.append(cursor)
                 def add_tuio_cursor(self, cursor: Cursor):
                     print("detect a new Cursor")
                     self.put_cursor(cursor)
@@ -192,6 +185,15 @@ def serve_forever(args=None):
                 def remove_tuio_cursor(self, cursor: Cursor):
                     print("a cursor was removed")
                     self.put_cursor(cursor)
+                def refresh(self, fseq):
+                    while len(self.bundle) > 0:
+                        self.q.put((fseq, self.bundle.pop()))
+                    if self.frame_count > args.obs_length * 5:
+                        paths = self.get_paths()
+                        self.make_prediction(paths)
+                        self.frame_count = 0
+                    else:
+                        self.frame_count += 1
 
                 def get_paths(self):
                     cursors = []
