@@ -1,39 +1,17 @@
-import os
-from collections import OrderedDict
 import argparse
 import socket
-from collections import deque
-import queue
 import sys
+import time
+from collections import deque
+from threading import Thread
 
-import pickle
-from joblib import Parallel, delayed
-import scipy
-
+import torch
 from pythontuio import TuioClient
 from pythontuio import Cursor
 from pythontuio import TuioListener
-from threading import Thread
-import time
-
-
-import trajnetplusplustools
-import evaluator.write as write
-from evaluator.design_pd import Table
-
-import shutil
-import os
-import pickle
-
-import torch
-import numpy as np
 
 import trajnetplusplustools
 import trajnetbaselines
-
-# Parallel Compute
-import multiprocessing
-from joblib import Parallel, delayed
 
 UDP_IP = "192.168.0.2"
 UDP_PORT = 6666
@@ -43,13 +21,10 @@ TUIO_PORT = 3334
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
                                               pedestrian=cursor.session_id,
-                                              x=50*cursor.position[0],
-                                              y=50*cursor.position[1])
-
-
+                                              x=cursor.position[0],
+                                              y=cursor.position[1])
+cursor_to_row
 def serve_forever(args=None):
-
-    seq_length = args.obs_length + args.pred_length
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -76,8 +51,6 @@ def serve_forever(args=None):
         device_name = "cpu"
         if args.gpu:
             device_name = "cuda"
-
-        goal_flag = False
 
         if 'kf' in model_name:
             print("Kalman")
@@ -164,7 +137,7 @@ def serve_forever(args=None):
             def get_paths(self):
                 cursors = []
                 paths = []
-                for person_id, dq in self.people.items():
+                for _, dq in self.people.items():
                     if len(dq) == args.obs_length:
                         for cursor in dq:
                             cursors.append(cursor)
@@ -190,11 +163,8 @@ def serve_forever(args=None):
                 self.socket.sendto(bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
 
             def make_prediction(self, paths):
-                if len(paths) < 1:
-                    print("No paths that are long enough")
-                    return False
                 scene_goal = []
-                for i in range(len(paths)):
+                for _, _ in enumerate(paths):
                     scene_goal.append([.0, .0])
                 prediction_list = predictor(paths,
                                             scene_goal,
@@ -215,17 +185,11 @@ def serve_forever(args=None):
                 for j, _ in enumerate(paths[1:]):  # Only need neighbour ids
                     ped_id_.append(paths[j+1][0].pedestrian)
 
-                scenerow = trajnetplusplustools.SceneRow(scene_id,
-                                                         ped_id, observed_path[0].frame,
-                                                         observed_path[0].frame +
-                                                         (seq_length - 1) * frame_diff,
-                                                         2.5,
-                                                         0)
-                for m in range(len(predictions)):
+                for _, m in enumerate(predictions):
                     prediction, neigh_predictions = predictions[m]
                     # Write Primary
                     msg = ""
-                    for i in range(len(prediction)):
+                    for _, i in enumerate(prediction):
                         track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                               ped_id,
                                                               prediction[i, 0].item(),
@@ -233,22 +197,22 @@ def serve_forever(args=None):
                                                               m,
                                                               scene_id)
                         msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                    self.send_to_touchdesigner(msg)
+                self.send_to_touchdesigner(msg)
 
-                    # Write Neighbours (if non-empty)
-                    if len(neigh_predictions):
-                        for n in range(neigh_predictions.shape[1]):
-                            msg = ""
-                            neigh = neigh_predictions[:, n]
-                            for j in range(len(neigh)):
-                                track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
-                                                                      ped_id_[n],
-                                                                      neigh[j, 0].item(),
-                                                                      neigh[j, 1].item(),
-                                                                      m,
-                                                                      scene_id)
+                # Write Neighbours (if non-empty)
+                if len(neigh_predictions):
+                    for n in range(neigh_predictions.shape[1]):
+                        msg = ""
+                        neigh = neigh_predictions[:, n]
+                        for j, _ in enumerate(neigh):
+                            track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
+                                                                  ped_id_[n],
+                                                                  neigh[j, 0].item(),
+                                                                  neigh[j, 1].item(),
+                                                                  m,
+                                                                  scene_id)
                             msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                            self.send_to_touchdesigner(msg)
+                        self.send_to_touchdesigner(msg)
 
         client = TuioClient(("localhost", TUIO_PORT))
         t = Thread(target=client.start)
@@ -287,8 +251,6 @@ def main():
     parser.add_argument('--gpu', default=False, type=bool,
                         help='if should use GPU')
     args = parser.parse_args()
-
-    scipy.seterr('ignore')
 
     args.output = args.output if args.output is not None else []
     # assert length of output models is not None
