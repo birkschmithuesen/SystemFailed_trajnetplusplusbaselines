@@ -6,7 +6,7 @@ SystemFailed Prediction Server
  - Visualize predictions:
    `python3.7 -m  evaluator.visualize_predictions ../DATA_BLOCK/pharus_saturday/test/5personen.ndjson ../DATA_BLOCK/pharus_saturday/test_pred/lstm_social_None_crowd.epoch25_modes1/5personen.ndjson -o 5pers_crowd_epoch25`
 
- - Start prediction server listing for Tuio: `python3.7 -m evaluator.server_udp --output OUTPUT_BLOCK/trajdata/lstm_social_None.pkl.epoch25 --path synth_data --gpu True`
+ - Start prediction server listing for Tuio: `python3.7 -m evaluator.server_udp --output OUTPUT_BLOCK/trajdata/lstm_social_None.pkl.epoch25 --gpu True`
 
  Evaluation on TrajNet++
  =======================
