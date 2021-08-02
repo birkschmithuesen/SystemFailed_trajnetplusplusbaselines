@@ -16,14 +16,23 @@ import trajnetbaselines
 UDP_IP = "192.168.0.2"
 UDP_PORT = 6666
 TUIO_PORT = 3334
+# Only take every FPS_PHARUS_TO_ML'th frame to get to 2.5FPS for the ML model
+FPS_PHARUS_TO_ML = 24
+PHARUS_FIELD_SIZE_X = 16.4
+PHARUS_FIELD_SIZE_Y = 9.06
 
 
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
                                               pedestrian=cursor.session_id,
-                                              x=cursor.position[0],
-                                              y=cursor.position[1])
+                                              x=PHARUS_FIELD_SIZE_X *
+                                              cursor.position[0],
+                                              y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
+
+
 cursor_to_row
+
+
 def serve_forever(args=None):
 
     # Handcrafted Baselines (if included)
@@ -118,12 +127,16 @@ def serve_forever(args=None):
                 self.new_frame_time = time.time()
                 fps = 1/(self.new_frame_time - self.prev_frame_time)
                 fps = int(fps)
-
                 self.prev_frame_time = self.new_frame_time
+
+                if fseq % FPS_PHARUS_TO_ML != 0:
+                    self.bundle = []
+
                 while len(self.bundle) > 0:
                     cursor = self.bundle.pop()
                     item = (fseq, cursor)
                     self.people[cursor.session_id].append(item)
+
                 paths = self.get_paths()
                 if paths:
                     new_frame_time = time.time()
@@ -160,7 +173,8 @@ def serve_forever(args=None):
 
             def send_to_touchdesigner(self, msg):
                 formatted_msg = "[{}]".format(msg[:-2])
-                self.socket.sendto(bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
+                self.socket.sendto(
+                    bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
 
             def make_prediction(self, paths):
                 scene_goal = []
@@ -179,7 +193,8 @@ def serve_forever(args=None):
                 predictions = prediction_list
                 observed_path = paths[0]
                 frame_diff = observed_path[1].frame - observed_path[0].frame
-                first_frame = observed_path[args.obs_length-1].frame + frame_diff
+                first_frame = observed_path[args.obs_length -
+                                            1].frame + frame_diff
                 ped_id = observed_path[0].pedestrian
                 ped_id_ = []
                 for j, _ in enumerate(paths[1:]):  # Only need neighbour ids
@@ -192,11 +207,14 @@ def serve_forever(args=None):
                     for i, _ in enumerate(prediction):
                         track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                               ped_id,
-                                                              prediction[i, 0].item(),
-                                                              prediction[i, 1].item(),
+                                                              prediction[i, 0].item(
+                                                              ),
+                                                              prediction[i, 1].item(
+                                                              ),
                                                               m,
                                                               scene_id)
-                        msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                        msg += trajnetplusplustools.writers.trajnet(
+                            track) + ', '
                 self.send_to_touchdesigner(msg)
 
                 # Write Neighbours (if non-empty)
@@ -207,11 +225,14 @@ def serve_forever(args=None):
                         for j, _ in enumerate(neigh):
                             track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
                                                                   ped_id_[n],
-                                                                  neigh[j, 0].item(),
-                                                                  neigh[j, 1].item(),
+                                                                  neigh[j, 0].item(
+                                                                  ),
+                                                                  neigh[j, 1].item(
+                                                                  ),
                                                                   m,
                                                                   scene_id)
-                            msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                            msg += trajnetplusplustools.writers.trajnet(
+                                track) + ', '
                         self.send_to_touchdesigner(msg)
 
         client = TuioClient(("localhost", TUIO_PORT))
@@ -221,7 +242,7 @@ def serve_forever(args=None):
         t.start()
 
 
-def main():
+def main(args):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', nargs='+',
@@ -250,7 +271,7 @@ def main():
                         help='number of modes to predict')
     parser.add_argument('--gpu', default=False, type=bool,
                         help='if should use GPU')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     args.output = args.output if args.output is not None else []
     # assert length of output models is not None
@@ -261,4 +282,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
