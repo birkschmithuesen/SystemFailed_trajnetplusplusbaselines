@@ -31,6 +31,7 @@ def cursor_to_row(timestamp, cursor):
                                               cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
+
 def serve_forever(args=None):
 
     # Handcrafted Baselines (if included)
