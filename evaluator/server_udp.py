@@ -2,6 +2,7 @@ import argparse
 import socket
 import sys
 import time
+from queue import Queue
 from collections import deque
 from threading import Thread
 
@@ -13,6 +14,7 @@ from pythontuio import TuioListener
 import trajnetplusplustools
 import trajnetbaselines
 
+QUEUE_MAX_LENGTH = 1
 UDP_IP = "192.168.0.2"
 UDP_PORT = 6666
 TUIO_PORT = 3334
@@ -28,10 +30,6 @@ def cursor_to_row(timestamp, cursor):
                                               x=PHARUS_FIELD_SIZE_X *
                                               cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
-
-
-cursor_to_row
-
 
 def serve_forever(args=None):
 
@@ -95,6 +93,86 @@ def serve_forever(args=None):
             print("Model Architecture not recognized")
             raise ValueError
 
+        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        def send_to_touchdesigner(msg):
+            formatted_msg = "[{}]".format(msg[:-2])
+            udp_socket.sendto(
+                bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
+
+        def make_prediction(paths):
+            scene_goal = []
+            for _, _ in enumerate(paths):
+                scene_goal.append([.0, .0])
+            prediction_list = predictor(paths,
+                                        scene_goal,
+                                        n_predict=args.pred_length,
+                                        obs_length=args.obs_length,
+                                        modes=args.modes,
+                                        args=args,
+                                        device=device_name)
+
+            # Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
+            scene_id = 1
+            predictions = prediction_list
+            observed_path = paths[0]
+            frame_diff = observed_path[1].frame - observed_path[0].frame
+            first_frame = observed_path[args.obs_length -
+                                        1].frame + frame_diff
+            ped_id = observed_path[0].pedestrian
+            ped_id_ = []
+            for j, _ in enumerate(paths[1:]):  # Only need neighbour ids
+                ped_id_.append(paths[j+1][0].pedestrian)
+
+            for _, m in enumerate(predictions):
+                prediction, neigh_predictions = predictions[m]
+                # Write Primary
+                msg = ""
+                for i, _ in enumerate(prediction):
+                    track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
+                                                          ped_id,
+                                                          prediction[i, 0].item(
+                                                          ),
+                                                          prediction[i, 1].item(
+                                                          ),
+                                                          m,
+                                                          scene_id)
+                    msg += trajnetplusplustools.writers.trajnet(
+                        track) + ', '
+            send_to_touchdesigner(msg)
+
+            # Write Neighbours (if non-empty)
+            if len(neigh_predictions):
+                for n in range(neigh_predictions.shape[1]):
+                    msg = ""
+                    neigh = neigh_predictions[:, n]
+                    for j, _ in enumerate(neigh):
+                        track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
+                                                              ped_id_[n],
+                                                              neigh[j, 0].item(
+                                                              ),
+                                                              neigh[j, 1].item(
+                                                              ),
+                                                              m,
+                                                              scene_id)
+                        msg += trajnetplusplustools.writers.trajnet(
+                            track) + ', '
+                    send_to_touchdesigner(msg)
+
+        q = Queue()
+
+        def prediction_loop():
+            while True:
+                paths = q.get()
+                new_frame_time = time.time()
+                make_prediction(paths)
+                fps = 1/(time.time() - new_frame_time)
+                fps = int(fps)
+                while q.qsize() > QUEUE_MAX_LENGTH:
+                    q.get()
+                sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
+                                 % (fps, q.qsize()))
+
         class MyListener(TuioListener):
             def __init__(self):
                 super().__init__()
@@ -105,7 +183,6 @@ def serve_forever(args=None):
                 self.prev_frame_time = 0
                 self.new_frame_time = 0
                 self.ml_fps = 0
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -139,13 +216,7 @@ def serve_forever(args=None):
 
                 paths = self.get_paths()
                 if paths:
-                    new_frame_time = time.time()
-                    self.make_prediction(paths)
-                    self.ml_fps = 1/(time.time() - new_frame_time)
-
-                sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r"
-                                 % (fps, self.ml_fps))
-                sys.stdout.flush()
+                    q.put(paths)
 
             def get_paths(self):
                 cursors = []
@@ -171,75 +242,14 @@ def serve_forever(args=None):
 
                 return paths
 
-            def send_to_touchdesigner(self, msg):
-                formatted_msg = "[{}]".format(msg[:-2])
-                self.socket.sendto(
-                    bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
-
-            def make_prediction(self, paths):
-                scene_goal = []
-                for _, _ in enumerate(paths):
-                    scene_goal.append([.0, .0])
-                prediction_list = predictor(paths,
-                                            scene_goal,
-                                            n_predict=args.pred_length,
-                                            obs_length=args.obs_length,
-                                            modes=args.modes,
-                                            args=args,
-                                            device=device_name)
-
-                # Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
-                scene_id = 1
-                predictions = prediction_list
-                observed_path = paths[0]
-                frame_diff = observed_path[1].frame - observed_path[0].frame
-                first_frame = observed_path[args.obs_length -
-                                            1].frame + frame_diff
-                ped_id = observed_path[0].pedestrian
-                ped_id_ = []
-                for j, _ in enumerate(paths[1:]):  # Only need neighbour ids
-                    ped_id_.append(paths[j+1][0].pedestrian)
-
-                for _, m in enumerate(predictions):
-                    prediction, neigh_predictions = predictions[m]
-                    # Write Primary
-                    msg = ""
-                    for i, _ in enumerate(prediction):
-                        track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
-                                                              ped_id,
-                                                              prediction[i, 0].item(
-                                                              ),
-                                                              prediction[i, 1].item(
-                                                              ),
-                                                              m,
-                                                              scene_id)
-                        msg += trajnetplusplustools.writers.trajnet(
-                            track) + ', '
-                self.send_to_touchdesigner(msg)
-
-                # Write Neighbours (if non-empty)
-                if len(neigh_predictions):
-                    for n in range(neigh_predictions.shape[1]):
-                        msg = ""
-                        neigh = neigh_predictions[:, n]
-                        for j, _ in enumerate(neigh):
-                            track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
-                                                                  ped_id_[n],
-                                                                  neigh[j, 0].item(
-                                                                  ),
-                                                                  neigh[j, 1].item(
-                                                                  ),
-                                                                  m,
-                                                                  scene_id)
-                            msg += trajnetplusplustools.writers.trajnet(
-                                track) + ', '
-                        self.send_to_touchdesigner(msg)
-
         client = TuioClient(("localhost", TUIO_PORT))
         t = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
         t.start()
+
+        t2 = Thread(target=prediction_loop)
+        t2.start()
 
 
 def main(args):
