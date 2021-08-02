@@ -57,10 +57,6 @@ def process_scene(predictor, model_name, paths, scene_goal, args):
     return predictions
 
 def serve_forever(args=None):
-    ## List of .json file inside the args.path (waiting to be predicted by the testing model)
-    datasets = sorted([f.split('.')[-2] for f in os.listdir(args.path.replace('_pred', '')) if not f.startswith('.') and f.endswith('.ndjson')])
-    all_goals = {}
-    seq_length = args.obs_length + args.pred_length
 
     ## Handcrafted Baselines (if included)
     if args.kf:
@@ -80,296 +76,209 @@ def serve_forever(args=None):
         model_name = model.split('/')[-1].replace('.pkl', '')
         model_name = model_name + '_modes' + str(args.modes)
 
-        ## Start writing predictions in dataset/test_pred
-        for dataset in datasets:
-            # Model's name
-            name = dataset.replace(args.path.replace('_pred', '') + 'test/', '') + '.ndjson'
-            print('NAME: ', name)
+        # Loading the APPROPRIATE model
+        ## Keep Adding Different Model Architectures to this List
+        print("Model Name: ", model_name)
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
 
-            # Loading the APPROPRIATE model
-            ## Keep Adding Different Model Architectures to this List
-            print("Model Name: ", model_name)
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
+        device_name = "cpu"
+        if(args.gpu):
+            device_name = "cuda"
+        goal_flag = False
+        if 'kf' in model_name:
+            print("Kalman")
+            predictor = trajnetbaselines.classical.kalman.predict
+        elif 'sf' in model_name:
+            print("Social Force")
+            predictor = trajnetbaselines.classical.socialforce.predict
+        elif 'orca' in model_name:
+            print("ORCA")
+            predictor = trajnetbaselines.classical.orca.predict
+        elif 'cv' in model_name:
+            print("CV")
+            predictor = trajnetbaselines.classical.constant_velocity.predict
+        elif 'sgan' in model_name:
+            print("SGAN")
+            predictor = trajnetbaselines.sgan.SGANPredictor.load(model)
+            device = torch.device(device_name)
+            predictor.model.to(device)
+            goal_flag = predictor.model.generator.goal_flag
+        elif 'vae' in model_name:
+            print("VAE")
+            predictor = trajnetbaselines.vae.VAEPredictor.load(model)
+            device = torch.device(device_name)
+            predictor.model.to(device)
+            goal_flag = predictor.model.goal_flag
+        elif 'lstm' in model_name:
+            print("LSTM")
+            predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
+            device = torch.device(device_name)
+            predictor.model.to(device)
+            goal_flag = predictor.model.goal_flag
+        else:
+            print("Model Architecture not recognized")
+            raise ValueError
 
-            device_name = "cpu"
-            if(args.gpu):
-                device_name = "cuda"
-            goal_flag = False
-            if 'kf' in model_name:
-                print("Kalman")
-                predictor = trajnetbaselines.classical.kalman.predict
-            elif 'sf' in model_name:
-                print("Social Force")
-                predictor = trajnetbaselines.classical.socialforce.predict
-            elif 'orca' in model_name:
-                print("ORCA")
-                predictor = trajnetbaselines.classical.orca.predict
-            elif 'cv' in model_name:
-                print("CV")
-                predictor = trajnetbaselines.classical.constant_velocity.predict
-            elif 'sgan' in model_name:
-                print("SGAN")
-                predictor = trajnetbaselines.sgan.SGANPredictor.load(model)
-                device = torch.device(device_name)
-                predictor.model.to(device)
-                goal_flag = predictor.model.generator.goal_flag
-            elif 'vae' in model_name:
-                print("VAE")
-                predictor = trajnetbaselines.vae.VAEPredictor.load(model)
-                device = torch.device(device_name)
-                predictor.model.to(device)
-                goal_flag = predictor.model.goal_flag
-            elif 'lstm' in model_name:
-                print("LSTM")
-                predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
-                device = torch.device(device_name)
-                predictor.model.to(device)
-                goal_flag = predictor.model.goal_flag
-            else:
-                print("Model Architecture not recognized")
-                raise ValueError
+        UDP_IP = "localhost"
+        UDP_PORT = 6666
+        TUIO_PORT = 3334
 
-            # Read Scenes from 'test' folder
-            reader = trajnetplusplustools.Reader(args.path.replace('_pred', '') + dataset + '.ndjson', scene_type='paths')
-            ## Necessary modification of train scene to add filename (for goals)
-            scenes = [(dataset, s_id, s) for s_id, s in reader.scenes()]
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-            ## Consider goals
-            ## Goal file must be present in 'goal_files/test_private' folder
-            ## Goal file must have the same name as corresponding test file
-            if goal_flag:
-                print("Loading Test Goals file")
-                goal_dict = pickle.load(open('goal_files/test_private/' + dataset +'.pkl', "rb"))
-                all_goals[dataset] = {s_id: [goal_dict[path[0].pedestrian] for path in s] for _, s_id, s in scenes}
+        class MyListener(TuioListener):
+            def __init__(self):
+                super().__init__()
+                self.people = {}
+                self.bundle = []
+                self.fseq = 0
+                self.frame_count = 0
+                self.prev_frame_time = 0
+                self.new_frame_time = 0
+                self.ml_fps = 0
 
-            ## Get Goals
-            if goal_flag:
-                scene_goals = [np.array(all_goals[filename][scene_id]) for filename, scene_id, _ in scenes]
-            else:
-                scene_goals = [np.zeros((len(paths), 2)) for _, scene_id, paths in scenes]
+            def put_cursor(self, cursor):
+                self.bundle.append(cursor)
 
-            # Get the model prediction and write them in corresponding test_pred file
-            # VERY IMPORTANT: Prediction Format
-            # The predictor function should output a dictionary. The keys of the dictionary should correspond to the prediction modes.
-            # ie. predictions[0] corresponds to the first mode. predictions[m] corresponds to the m^th mode.... Multimodal predictions!
-            # Each modal prediction comprises of primary prediction and neighbour (surrrounding) predictions i.e. predictions[m] = [primary_prediction, neigh_predictions]
-            # Note: Return [primary_prediction, []] if model does not provide neighbour predictions
-            # Shape of primary_prediction: Tensor of Shape (Prediction length, 2)
-            # Shape of Neighbour_prediction: Tensor of Shape (Prediction length, n_tracks - 1, 2).
-            # (See LSTMPredictor.py for more details)
+            def add_tuio_cursor(self, cursor: Cursor):
+                self.people[cursor.session_id] = deque(maxlen=args.obs_length)
+                self.put_cursor(cursor)
 
-            import timeit
+            def update_tuio_cursor(self, cursor: Cursor):
+                if not cursor.session_id in self.people:
+                    self.add_tuio_cursor(cursor)
+                self.put_cursor(cursor)
 
-            UDP_IP = "localhost"
-            UDP_PORT = 6666
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            def remove_tuio_cursor(self, cursor: Cursor):
+                if cursor.session_id in self.people:
+                    del self.people[cursor.session_id]
 
 
+            def refresh(self, fseq):
+                self.new_frame_time = time.time()
+                fps = 1/(self.new_frame_time - self.prev_frame_time)
+                fps = int(fps)
 
-            def print_cursor(cursor):
-                print(str(round(time.time() * 1000)) + '|' + str(cursor.session_id) + '|' + str(cursor.position[0]) + '|' + str(cursor.position[1]))
+                self.prev_frame_time = self.new_frame_time
+                while len(self.bundle) > 0:
+                    cursor = self.bundle.pop()
+                    item = (fseq, cursor)
+                    self.people[cursor.session_id].append(item)
+                paths = self.get_paths()
+                if paths:
+                    new_frame_time = time.time()
+                    self.make_prediction(paths)
+                    self.ml_fps = 1/(time.time() - new_frame_time)
 
-            class MyListener(TuioListener):
-                def __init__(self):
-                    super().__init__()
-                    self.people = {}
-                    self.bundle = []
-                    self.fseq = 0
-                    self.frame_count = 0
-                    self.prev_frame_time = 0
-                    self.new_frame_time = 0
-                    self.ml_fps = 0
+                sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r" % (fps, self.ml_fps) )
+                sys.stdout.flush()
 
-                def put_cursor(self, cursor):
-                    self.bundle.append(cursor)
+            def get_paths(self):
+                cursors = []
+                paths = []
+                for person_id, dq in self.people.items():
+                    if len(dq) == args.obs_length:
+                        for cursor in dq:
+                            cursors.append(cursor)
 
-                def add_tuio_cursor(self, cursor: Cursor):
-                    self.people[cursor.session_id] = deque(maxlen=args.obs_length)
-                    self.put_cursor(cursor)
+                if len(cursors) == 0:
+                    return None
 
-                def update_tuio_cursor(self, cursor: Cursor):
-                    if not cursor.session_id in self.people:
-                        self.add_tuio_cursor(cursor)
-                    self.put_cursor(cursor)
+                person_to_index = {}
+                counter = 0
+                for (timestamp, cursor) in cursors:
+                    row = cursor_to_row(timestamp, cursor)
+                    if not cursor.session_id in person_to_index:
+                        paths.append([])
+                        person_to_index[cursor.session_id] = counter
+                        counter += 1
+                    index = person_to_index[cursor.session_id]
+                    paths[index].append(row)
 
-                def remove_tuio_cursor(self, cursor: Cursor):
-                    if cursor.session_id in self.people:
-                        del self.people[cursor.session_id]
+                return paths
 
+            def make_prediction(self, paths):
+                if len(paths) < 1:
+                    print("No paths that are long enough")
+                    return False
+                start = timeit.default_timer()
+                scene_goal = []
+                for i in range(len(paths)):
+                    scene_goal.append([.0, .0])
+                prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
+                stop = timeit.default_timer()
+                #print(prediction_list)
+                """
+                print('Prediction time: ', stop - start)
+                print("Length paths")
+                print(len(paths))
+                print("Length of path in paths")
+                for path in paths:
+                    print(len(path))
+                print(paths)
+                print(prediction_list)
+                """
 
-                def refresh(self, fseq):
-                    self.new_frame_time = time.time()
-                    fps = 1/(self.new_frame_time - self.prev_frame_time)
-                    fps = int(fps)
+                msg = ""
 
-                    self.prev_frame_time = self.new_frame_time
-                    while len(self.bundle) > 0:
-                        cursor = self.bundle.pop()
-                        item = (fseq, cursor)
-                        self.people[cursor.session_id].append(item)
-                    paths = self.get_paths()
-                    if paths:
-                        new_frame_time = time.time()
-                        self.make_prediction(paths)
-                        self.ml_fps = 1/(time.time() - new_frame_time)
+                ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
+                scene_id = 1
+                predictions = prediction_list
+                observed_path = paths[0]
+                frame_diff = observed_path[1].frame - observed_path[0].frame
+                first_frame = observed_path[args.obs_length-1].frame + frame_diff
+                ped_id = observed_path[0].pedestrian
+                ped_id_ = []
+                for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
+                   ped_id_.append(paths[j+1][0].pedestrian)
 
-                    sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r" % (fps, self.ml_fps) )
-                    sys.stdout.flush()
+                ## Write SceneRow
+                scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
+                                                        observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
+                # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
+                """
+                msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
+                sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                print(msg)
+                """
 
-                def get_paths(self):
-                    cursors = []
-                    paths = []
-                    for person_id, dq in self.people.items():
-                        if len(dq) == args.obs_length:
-                            for cursor in dq:
-                                cursors.append(cursor)
+                for m in range(len(predictions)):
+                   prediction, neigh_predictions = predictions[m]
+                   ## Write Primary
+                   for i in range(len(prediction)):
+                       track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
+                                                             prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
+                       msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                       #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                       #print(msg)
 
-                    if len(cursors) == 0:
-                        return None
+                   ## Write Neighbours (if non-empty)
+                   if len(neigh_predictions):
+                       for n in range(neigh_predictions.shape[1]):
+                           neigh = neigh_predictions[:, n]
+                           for j in range(len(neigh)):
+                               track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
+                                                                     neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
+                               msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                               #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                               #print(msg)
+                #sys.exit()
+                msg = "[{}]".format(msg[:-2])
+                sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
+                """
+                print(len(bytes(msg, "utf-8")))
+                print(msg)
+                """
 
-                    person_to_index = {}
-                    counter = 0
-                    for (timestamp, cursor) in cursors:
-                        row = cursor_to_row(timestamp, cursor)
-                        if not cursor.session_id in person_to_index:
-                            paths.append([])
-                            person_to_index[cursor.session_id] = counter
-                            counter += 1
-                        index = person_to_index[cursor.session_id]
-                        paths[index].append(row)
+        client = TuioClient(("localhost", TUIO_PORT))
+        t = Thread(target=client.start)
+        listener = MyListener()
+        client.add_listener(listener)
+        t.start()
 
-                    return paths
-
-                def make_prediction(self, paths):
-                    if len(paths) < 1:
-                        print("No paths that are long enough")
-                        return False
-                    start = timeit.default_timer()
-                    scene_goal = []
-                    for i in range(len(paths)):
-                        scene_goal.append([.0, .0])
-                    prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
-                    stop = timeit.default_timer()
-                    #print(prediction_list)
-                    """
-                    print('Prediction time: ', stop - start)
-                    print("Length paths")
-                    print(len(paths))
-                    print("Length of path in paths")
-                    for path in paths:
-                        print(len(path))
-                    print(paths)
-                    print(prediction_list)
-                    """
-
-                    msg = ""
-
-                    ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
-                    scene_id = 1
-                    predictions = prediction_list
-                    observed_path = paths[0]
-                    frame_diff = observed_path[1].frame - observed_path[0].frame
-                    first_frame = observed_path[args.obs_length-1].frame + frame_diff
-                    ped_id = observed_path[0].pedestrian
-                    ped_id_ = []
-                    for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
-                       ped_id_.append(paths[j+1][0].pedestrian)
-
-                    ## Write SceneRow
-                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
-                                                            observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
-                    # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
-                    """
-                    msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
-                    sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                    print(msg)
-                    """
-
-                    for m in range(len(predictions)):
-                       prediction, neigh_predictions = predictions[m]
-                       ## Write Primary
-                       for i in range(len(prediction)):
-                           track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
-                                                                 prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
-                           msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                           #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                           #print(msg)
-
-                       ## Write Neighbours (if non-empty)
-                       if len(neigh_predictions):
-                           for n in range(neigh_predictions.shape[1]):
-                               neigh = neigh_predictions[:, n]
-                               for j in range(len(neigh)):
-                                   track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
-                                                                         neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
-                                   msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                                   #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                                   #print(msg)
-                    #sys.exit()
-                    msg = "[{}]".format(msg[:-2])
-                    sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                    """
-                    print(len(bytes(msg, "utf-8")))
-                    print(msg)
-                    """
-
-            client = TuioClient(("localhost",3333))
-            t = Thread(target=client.start)
-            listener = MyListener()
-            client.add_listener(listener)
-            t.start()
-
-"""
-
-            with open(args.path + '{}/{}'.format(model_name, name), "a") as myfile:
-                ## Get all predictions in parallel. Faster!
-                pred_list = Parallel(n_jobs=12)(delayed(process_scene)(predictor, model_name, paths, scene_goal, args)
-                                                for (_, _, paths), scene_goal in zip(scenes, scene_goals))
-
-                ## Write All Predictions
-                for (predictions, (_, scene_id, paths)) in zip(pred_list, scenes):
-                    ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
-                    observed_path = paths[0]
-                    frame_diff = observed_path[1].frame - observed_path[0].frame
-                    first_frame = observed_path[args.obs_length-1].frame + frame_diff
-                    ped_id = observed_path[0].pedestrian
-                    ped_id_ = []
-                    for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
-                        ped_id_.append(paths[j+1][0].pedestrian)
-
-                    ## Write SceneRow
-                    scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
-                                                             observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
-                    # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
-                    myfile.write(trajnetplusplustools.writers.trajnet(scenerow))
-                    myfile.write('\n')
-
-                    for m in range(len(predictions)):
-                        prediction, neigh_predictions = predictions[m]
-                        ## Write Primary
-                        for i in range(len(prediction)):
-                            track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
-                                                                  prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
-                            myfile.write(trajnetplusplustools.writers.trajnet(track))
-                            myfile.write('\n')
-
-                        ## Write Neighbours (if non-empty)
-                        if len(neigh_predictions):
-                            for n in range(neigh_predictions.shape[1]):
-                                neigh = neigh_predictions[:, n]
-                                for j in range(len(neigh)):
-                                    track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
-                                                                          neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
-                                    myfile.write(trajnetplusplustools.writers.trajnet(track))
-                                    myfile.write('\n')
-
-"""
 def main():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', default='trajdata',
-                        help='directory of data to test')
     parser.add_argument('--output', nargs='+',
                         help='relative path to saved model')
     parser.add_argument('--obs_length', default=9, type=int,
@@ -404,12 +313,6 @@ def main():
     ## assert length of output models is not None
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
-
-    ## Path to the data folder name to predict
-    args.path = 'DATA_BLOCK/' + args.path + '/'
-
-    ## Test_pred : Folders for saving model predictions
-    args.path = args.path + 'test_pred/'
 
     ## Writes to Test_pred
     ## Does NOT overwrite existing predictions if they already exist ###
