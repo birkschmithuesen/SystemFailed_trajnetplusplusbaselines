@@ -31,36 +31,27 @@ import numpy as np
 import trajnetplusplustools
 import trajnetbaselines
 
-## Parallel Compute
+# Parallel Compute
 import multiprocessing
 from joblib import Parallel, delayed
-from tqdm import tqdm
 
-def make_timestamp():
-    return str(round(time.time() * 1000))
+UDP_IP = "192.168.0.2"
+UDP_PORT = 6666
+TUIO_PORT = 3334
+
 
 def cursor_to_row(timestamp, cursor):
-    return trajnetplusplustools.data.TrackRow(frame=int(timestamp), pedestrian=cursor.session_id, x=50*cursor.position[0], y=50*cursor.position[1])
+    return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
+                                              pedestrian=cursor.session_id,
+                                              x=50*cursor.position[0],
+                                              y=50*cursor.position[1])
 
-def process_scene(predictor, model_name, paths, scene_goal, args):
-    ## For each scene, get predictions
-    if 'sf_opt' in model_name:
-        predictions = predictor(paths, sf_params=[0.5, 5.0, 0.3], n_predict=args.pred_length, obs_length=args.obs_length) ## optimal sf_params (no collision constraint) [0.5, 1.0, 0.1],
-    elif 'orca_opt' in model_name:
-        predictions = predictor(paths, orca_params=[0.4, 1.0, 0.3], n_predict=args.pred_length, obs_length=args.obs_length) ## optimal orca_params (no collision constraint) [0.25, 1.0, 0.3]
-    elif  ('sf' in model_name) or ('orca' in model_name) or ('kf' in model_name):
-        predictions = predictor(paths, n_predict=args.pred_length, obs_length=args.obs_length)
-    elif 'cv' in model_name:
-        predictions = predictor(paths, n_predict=args.pred_length, obs_length=args.obs_length)
-    else:
-        predictions = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args)
-    return predictions
 
 def serve_forever(args=None):
 
     seq_length = args.obs_length + args.pred_length
 
-    ## Handcrafted Baselines (if included)
+    # Handcrafted Baselines (if included)
     if args.kf:
         args.output.append('/kf.pkl')
     if args.sf:
@@ -72,22 +63,22 @@ def serve_forever(args=None):
     if args.cv:
         args.output.append('/cv.pkl')
 
-    ## Extract Model names from arguments and create its own folder in 'test_pred' for storing predictions
-    ## WARNING: If Model predictions already exist from previous run, this process SKIPS WRITING
     for model in args.output:
         model_name = model.split('/')[-1].replace('.pkl', '')
         model_name = model_name + '_modes' + str(args.modes)
 
         # Loading the APPROPRIATE model
-        ## Keep Adding Different Model Architectures to this List
+        # Keep Adding Different Model Architectures to this List
         print("Model Name: ", model_name)
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
 
         device_name = "cpu"
-        if(args.gpu):
+        if args.gpu:
             device_name = "cuda"
+
         goal_flag = False
+
         if 'kf' in model_name:
             print("Kalman")
             predictor = trajnetbaselines.classical.kalman.predict
@@ -122,12 +113,6 @@ def serve_forever(args=None):
             print("Model Architecture not recognized")
             raise ValueError
 
-        UDP_IP = "localhost"
-        UDP_PORT = 6666
-        TUIO_PORT = 3334
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
         class MyListener(TuioListener):
             def __init__(self):
                 super().__init__()
@@ -138,6 +123,7 @@ def serve_forever(args=None):
                 self.prev_frame_time = 0
                 self.new_frame_time = 0
                 self.ml_fps = 0
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -171,7 +157,8 @@ def serve_forever(args=None):
                     self.make_prediction(paths)
                     self.ml_fps = 1/(time.time() - new_frame_time)
 
-                sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r" % (fps, self.ml_fps) )
+                sys.stdout.write("Pharus FPS: %d --- ML FPS: %d  \r"
+                                 % (fps, self.ml_fps))
                 sys.stdout.flush()
 
             def get_paths(self):
@@ -198,6 +185,10 @@ def serve_forever(args=None):
 
                 return paths
 
+            def send_to_touchdesigner(self, msg):
+                formatted_msg = "[{}]".format(msg[:-2])
+                self.socket.sendto(bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
+
             def make_prediction(self, paths):
                 if len(paths) < 1:
                     print("No paths that are long enough")
@@ -205,21 +196,15 @@ def serve_forever(args=None):
                 scene_goal = []
                 for i in range(len(paths)):
                     scene_goal.append([.0, .0])
-                prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
-                """
-                print('Prediction time: ', stop - start)
-                print("Length paths")
-                print(len(paths))
-                print("Length of path in paths")
-                for path in paths:
-                    print(len(path))
-                print(paths)
-                print(prediction_list)
-                """
+                prediction_list = predictor(paths,
+                                            scene_goal,
+                                            n_predict=args.pred_length,
+                                            obs_length=args.obs_length,
+                                            modes=args.modes,
+                                            args=args,
+                                            device=device_name)
 
-                msg = ""
-
-                ## Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
+                # Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
                 scene_id = 1
                 predictions = prediction_list
                 observed_path = paths[0]
@@ -227,52 +212,50 @@ def serve_forever(args=None):
                 first_frame = observed_path[args.obs_length-1].frame + frame_diff
                 ped_id = observed_path[0].pedestrian
                 ped_id_ = []
-                for j, _ in enumerate(paths[1:]): ## Only need neighbour ids
-                   ped_id_.append(paths[j+1][0].pedestrian)
+                for j, _ in enumerate(paths[1:]):  # Only need neighbour ids
+                    ped_id_.append(paths[j+1][0].pedestrian)
 
-                ## Write SceneRow
-                scenerow = trajnetplusplustools.SceneRow(scene_id, ped_id, observed_path[0].frame,
-                                                        observed_path[0].frame + (seq_length - 1) * frame_diff, 2.5, 0)
-                # scenerow = trajnetplusplustools.SceneRow(scenerow.scene, scenerow.pedestrian, scenerow.start, scenerow.end, 2.5, 0)
-                """
-                msg = trajnetplusplustools.writers.trajnet(scenerow) + '\n'
-                sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                print(msg)
-                """
-
+                scenerow = trajnetplusplustools.SceneRow(scene_id,
+                                                         ped_id, observed_path[0].frame,
+                                                         observed_path[0].frame +
+                                                         (seq_length - 1) * frame_diff,
+                                                         2.5,
+                                                         0)
                 for m in range(len(predictions)):
-                   prediction, neigh_predictions = predictions[m]
-                   ## Write Primary
-                   for i in range(len(prediction)):
-                       track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff, ped_id,
-                                                             prediction[i, 0].item(), prediction[i, 1].item(), m, scene_id)
-                       msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                       #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                       #print(msg)
+                    prediction, neigh_predictions = predictions[m]
+                    # Write Primary
+                    msg = ""
+                    for i in range(len(prediction)):
+                        track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
+                                                              ped_id,
+                                                              prediction[i, 0].item(),
+                                                              prediction[i, 1].item(),
+                                                              m,
+                                                              scene_id)
+                        msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                    self.send_to_touchdesigner(msg)
 
-                   ## Write Neighbours (if non-empty)
-                   if len(neigh_predictions):
-                       for n in range(neigh_predictions.shape[1]):
-                           neigh = neigh_predictions[:, n]
-                           for j in range(len(neigh)):
-                               track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff, ped_id_[n],
-                                                                     neigh[j, 0].item(), neigh[j, 1].item(), m, scene_id)
-                               msg += trajnetplusplustools.writers.trajnet(track) + ', '
-                               #sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                               #print(msg)
-                #sys.exit()
-                msg = "[{}]".format(msg[:-2])
-                sock.sendto(bytes(msg, "utf-8"), (UDP_IP, UDP_PORT))
-                """
-                print(len(bytes(msg, "utf-8")))
-                print(msg)
-                """
+                    # Write Neighbours (if non-empty)
+                    if len(neigh_predictions):
+                        for n in range(neigh_predictions.shape[1]):
+                            msg = ""
+                            neigh = neigh_predictions[:, n]
+                            for j in range(len(neigh)):
+                                track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
+                                                                      ped_id_[n],
+                                                                      neigh[j, 0].item(),
+                                                                      neigh[j, 1].item(),
+                                                                      m,
+                                                                      scene_id)
+                            msg += trajnetplusplustools.writers.trajnet(track) + ', '
+                            self.send_to_touchdesigner(msg)
 
         client = TuioClient(("localhost", TUIO_PORT))
         t = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
         t.start()
+
 
 def main():
 
@@ -308,13 +291,12 @@ def main():
     scipy.seterr('ignore')
 
     args.output = args.output if args.output is not None else []
-    ## assert length of output models is not None
+    # assert length of output models is not None
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
 
-    ## Writes to Test_pred
-    ## Does NOT overwrite existing predictions if they already exist ###
     serve_forever(args)
+
 
 if __name__ == '__main__':
     main()
