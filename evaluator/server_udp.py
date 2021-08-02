@@ -189,7 +189,7 @@ def serve_forever(args=None):
                     prediction, neigh_predictions = predictions[m]
                     # Write Primary
                     msg = ""
-                    for _, i in enumerate(prediction):
+                    for i, _ in enumerate(prediction):
                         track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                               ped_id,
                                                               prediction[i, 0].item(),
