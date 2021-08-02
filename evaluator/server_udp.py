@@ -58,6 +58,8 @@ def process_scene(predictor, model_name, paths, scene_goal, args):
 
 def serve_forever(args=None):
 
+    seq_length = args.obs_length + args.pred_length
+
     ## Handcrafted Baselines (if included)
     if args.kf:
         args.output.append('/kf.pkl')
@@ -153,7 +155,6 @@ def serve_forever(args=None):
                 if cursor.session_id in self.people:
                     del self.people[cursor.session_id]
 
-
             def refresh(self, fseq):
                 self.new_frame_time = time.time()
                 fps = 1/(self.new_frame_time - self.prev_frame_time)
@@ -201,13 +202,10 @@ def serve_forever(args=None):
                 if len(paths) < 1:
                     print("No paths that are long enough")
                     return False
-                start = timeit.default_timer()
                 scene_goal = []
                 for i in range(len(paths)):
                     scene_goal.append([.0, .0])
                 prediction_list = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args, device=device_name)
-                stop = timeit.default_timer()
-                #print(prediction_list)
                 """
                 print('Prediction time: ', stop - start)
                 print("Length paths")
