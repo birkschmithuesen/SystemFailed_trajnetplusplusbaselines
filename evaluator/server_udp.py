@@ -32,7 +32,7 @@ def cursor_to_row(timestamp, cursor):
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None):
+def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -169,6 +169,8 @@ def serve_forever(args=None):
                 make_prediction(paths)
                 fps = 1/(time.time() - new_frame_time)
                 fps = int(fps)
+                if fps_callback:
+                    fps_callback(fps)
                 while q.qsize() > QUEUE_MAX_LENGTH:
                     q.get()
                 sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
@@ -184,6 +186,7 @@ def serve_forever(args=None):
                 self.prev_frame_time = 0
                 self.new_frame_time = 0
                 self.ml_fps = 0
+                self.fps_callback = pharus_fps_callback
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -206,6 +209,8 @@ def serve_forever(args=None):
                 fps = 1/(self.new_frame_time - self.prev_frame_time)
                 fps = int(fps)
                 self.prev_frame_time = self.new_frame_time
+                if self.fps_callback:
+                  self.fps_callback(fps)
 
                 if fseq % FPS_PHARUS_TO_ML != 0:
                     self.bundle = []
@@ -253,7 +258,7 @@ def serve_forever(args=None):
         t2.start()
 
 
-def main(args):
+def main(args, fps_callback=None, pharus_fps_callback=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', nargs='+',
@@ -289,7 +294,7 @@ def main(args):
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
 
-    serve_forever(args)
+    serve_forever(args, fps_callback, pharus_fps_callback)
 
 
 if __name__ == '__main__':
