@@ -249,13 +249,15 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                 return paths
 
         client = TuioClient(("localhost", TUIO_PORT))
-        t = Thread(target=client.start)
+        t1 = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
-        t.start()
+        t1.start()
 
         t2 = Thread(target=prediction_loop)
         t2.start()
+
+        return [t1, t2]
 
 
 def main(args, fps_callback=None, pharus_fps_callback=None):
@@ -294,8 +296,10 @@ def main(args, fps_callback=None, pharus_fps_callback=None):
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
 
-    serve_forever(args, fps_callback, pharus_fps_callback)
+    return serve_forever(args, fps_callback, pharus_fps_callback)
 
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+    while True:
+        pass
