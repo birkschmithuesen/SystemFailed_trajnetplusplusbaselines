@@ -14,11 +14,9 @@ from pythontuio import TuioListener
 import trajnetplusplustools
 import trajnetbaselines
 
-QUEUE_MAX_LENGTH = 1
+QUEUE_MAX_LENGTH = 10
 UDP_PORT = 6666
 TUIO_PORT = 3334
-# Only take every FPS_PHARUS_TO_ML'th frame to get to 2.5FPS for the ML model
-FPS_PHARUS_TO_ML = 12
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
 
@@ -26,12 +24,13 @@ PHARUS_FIELD_SIZE_Y = 9.06
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
                                               pedestrian=cursor.session_id,
-                                              x=PHARUS_FIELD_SIZE_X *
-                                              cursor.position[0],
+                                              x=PHARUS_FIELD_SIZE_X * cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
+
+    pharus_sender_fps = pharus_sender_fps // 2.5
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -172,7 +171,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 fps = 1/(time.time() - new_frame_time)
                 fps = int(fps)
                 if ml_fps_callback:
-                    ml_fps_callback(fps, pred_paths)
+                    ml_fps_callback(fps, paths, pred_paths)
                 while q.qsize() > QUEUE_MAX_LENGTH:
                     q.get()
                 sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
@@ -212,17 +211,20 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 fps = int(fps)
                 self.prev_frame_time = self.new_frame_time
 
-                if fseq % FPS_PHARUS_TO_ML != 0:
-                    self.bundle = []
 
-                while len(self.bundle) > 0:
-                    cursor = self.bundle.pop()
-                    item = (fseq, cursor)
-                    self.people[cursor.session_id].append(item)
+                if fseq % pharus_sender_fps == 0:
+                    for cursor in self.bundle:
+                        cursor_copy = Cursor(cursor.session_id)
+                        cursor_copy.position = cursor.position
+                        item = (fseq, cursor_copy)
+                        self.people[cursor.session_id].append(item)
+                    paths = self.get_paths()
+                    if paths:
+                        q.put(paths)
+                else:
+                    paths = []
 
-                paths = self.get_paths()
-                if paths:
-                    q.put(paths)
+                self.bundle = []
 
                 if self.fps_callback:
                   self.fps_callback(fps, paths)
@@ -240,7 +242,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 person_to_index = {}
                 counter = 0
-                for (timestamp, cursor) in cursors:
+                for timestamp, cursor in cursors:
                     row = cursor_to_row(timestamp, cursor)
                     if not cursor.session_id in person_to_index:
                         paths.append([])
