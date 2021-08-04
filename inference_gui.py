@@ -57,7 +57,8 @@ class Ui(QtWidgets.QMainWindow):
         if self.button.text() == "stop":
             return
         self.button.setText("stop")
-        self.threads = start_inference_server(pharus_receiver_ip="localhost",
+        self.threads = start_inference_server(model_path="OUTPUT_BLOCK/pharus_kreis_mit_stehenbleiben/lstm_social_None.pkl.epoch10",
+                                             pharus_receiver_ip="192.168.0.3",
                                              touch_designer_ip="192.168.0.2",
                                              fps_callback=self.fps_callback,
                                              pharus_fps_callback=self.pharus_fps_callback)

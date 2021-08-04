@@ -28,7 +28,7 @@ def cursor_to_row(timestamp, cursor):
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=30):
 
     pharus_sender_fps = int(pharus_sender_fps / 2.5)
 
