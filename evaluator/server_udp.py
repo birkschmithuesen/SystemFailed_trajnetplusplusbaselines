@@ -15,11 +15,10 @@ import trajnetplusplustools
 import trajnetbaselines
 
 QUEUE_MAX_LENGTH = 1
-UDP_IP = "192.168.0.2"
 UDP_PORT = 6666
 TUIO_PORT = 3334
 # Only take every FPS_PHARUS_TO_ML'th frame to get to 2.5FPS for the ML model
-FPS_PHARUS_TO_ML = 24
+FPS_PHARUS_TO_ML = 12
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
 
@@ -32,7 +31,7 @@ def cursor_to_row(timestamp, cursor):
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None):
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -99,7 +98,7 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
         def send_to_touchdesigner(msg):
             formatted_msg = "[{}]".format(msg[:-2])
             udp_socket.sendto(
-                bytes(formatted_msg, "utf-8"), (UDP_IP, UDP_PORT))
+                bytes(formatted_msg, "utf-8"), (touch_designer_ip, UDP_PORT))
 
         def make_prediction(paths):
             scene_goal = []
@@ -114,6 +113,7 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                                         device=device_name)
 
             # Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
+            prediction_paths = []
             scene_id = 1
             predictions = prediction_list
             observed_path = paths[0]
@@ -132,12 +132,11 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                 for i, _ in enumerate(prediction):
                     track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                           ped_id,
-                                                          prediction[i, 0].item(
-                                                          ),
-                                                          prediction[i, 1].item(
-                                                          ),
+                                                          prediction[i, 0].item(),
+                                                          prediction[i, 1].item(),
                                                           m,
                                                           scene_id)
+                    prediction_paths.append(track)
                     msg += trajnetplusplustools.writers.trajnet(
                         track) + ', '
             send_to_touchdesigner(msg)
@@ -158,7 +157,10 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                                                               scene_id)
                         msg += trajnetplusplustools.writers.trajnet(
                             track) + ', '
+                        prediction_paths.append(track)
                     send_to_touchdesigner(msg)
+
+            return prediction_paths
 
         q = Queue()
 
@@ -166,11 +168,11 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
             while True:
                 paths = q.get()
                 new_frame_time = time.time()
-                make_prediction(paths)
+                pred_paths = make_prediction(paths)
                 fps = 1/(time.time() - new_frame_time)
                 fps = int(fps)
-                if fps_callback:
-                    fps_callback(fps)
+                if ml_fps_callback:
+                    ml_fps_callback(fps, pred_paths)
                 while q.qsize() > QUEUE_MAX_LENGTH:
                     q.get()
                 sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
@@ -209,8 +211,6 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                 fps = 1/(self.new_frame_time - self.prev_frame_time)
                 fps = int(fps)
                 self.prev_frame_time = self.new_frame_time
-                if self.fps_callback:
-                  self.fps_callback(fps)
 
                 if fseq % FPS_PHARUS_TO_ML != 0:
                     self.bundle = []
@@ -223,6 +223,9 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
                 paths = self.get_paths()
                 if paths:
                     q.put(paths)
+
+                if self.fps_callback:
+                  self.fps_callback(fps, paths)
 
             def get_paths(self):
                 cursors = []
@@ -260,7 +263,7 @@ def serve_forever(args=None, fps_callback=None, pharus_fps_callback=None):
         return [t1, t2]
 
 
-def main(args, fps_callback=None, pharus_fps_callback=None):
+def main(args, touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_callback=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', nargs='+',
@@ -296,7 +299,7 @@ def main(args, fps_callback=None, pharus_fps_callback=None):
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
 
-    return serve_forever(args, fps_callback, pharus_fps_callback)
+    return serve_forever(args, touch_designer_ip, fps_callback, pharus_fps_callback)
 
 
 if __name__ == '__main__':
