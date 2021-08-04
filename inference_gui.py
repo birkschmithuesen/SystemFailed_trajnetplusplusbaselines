@@ -11,7 +11,7 @@ from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
 
-PRED_LENGTH = 9
+PRED_LENGTH = 4
 
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
@@ -58,7 +58,7 @@ class Ui(QtWidgets.QMainWindow):
             return
         self.button.setText("stop")
         self.threads = start_inference_server(pharus_receiver_ip="localhost",
-                                             touch_designer_ip="192.168.0.1",
+                                             touch_designer_ip="192.168.0.2",
                                              fps_callback=self.fps_callback,
                                              pharus_fps_callback=self.pharus_fps_callback)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
@@ -86,12 +86,11 @@ class Ui(QtWidgets.QMainWindow):
 
 
     def pharus_fps_callback(self, fps, paths):
-        pass
-        """
         self.pharus_fps_deque.append(fps)
         avg_fps = sum(list(self.pharus_fps_deque))//FPS_AVERAGING_WINDOW
         self.pharus_fps.display(avg_fps)
 
+        """
         if not paths:
             return
 
