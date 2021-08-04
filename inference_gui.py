@@ -131,6 +131,5 @@ window = Ui()  # Create an instance of our class
 
 timer = QTimer()
 timer.timeout.connect(window.plot_graph)
-timer.start(100)
-
+timer.start(25)
 app.exec_()  # Start the

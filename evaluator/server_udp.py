@@ -30,7 +30,7 @@ def cursor_to_row(timestamp, cursor):
 
 def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
 
-    pharus_sender_fps = pharus_sender_fps // 2.5
+    pharus_sender_fps = int(pharus_sender_fps / 2.5)
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -193,7 +193,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.bundle.append(cursor)
 
             def add_tuio_cursor(self, cursor: Cursor):
-                self.people[cursor.session_id] = deque(maxlen=args.obs_length)
+                length = int(args.obs_length*pharus_sender_fps + 1)
+                self.people[cursor.session_id] = deque(maxlen=length)
                 self.put_cursor(cursor)
 
             def update_tuio_cursor(self, cursor: Cursor):
@@ -211,18 +212,14 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 fps = int(fps)
                 self.prev_frame_time = self.new_frame_time
 
-
-                if fseq % pharus_sender_fps == 0:
-                    for cursor in self.bundle:
-                        cursor_copy = Cursor(cursor.session_id)
-                        cursor_copy.position = cursor.position
-                        item = (fseq, cursor_copy)
-                        self.people[cursor.session_id].append(item)
-                    paths = self.get_paths()
-                    if paths:
-                        q.put(paths)
-                else:
-                    paths = []
+                for cursor in self.bundle:
+                    cursor_copy = Cursor(cursor.session_id)
+                    cursor_copy.position = cursor.position
+                    item = (fseq, cursor_copy)
+                    self.people[cursor.session_id].append(item)
+                paths = self.get_paths()
+                if paths:
+                    q.put(paths)
 
                 self.bundle = []
 
@@ -233,8 +230,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 cursors = []
                 paths = []
                 for _, dq in self.people.items():
-                    if len(dq) == args.obs_length:
-                        for cursor in dq:
+                    if len(dq) == dq.maxlen:
+                        for cursor in list(dq)[::pharus_sender_fps]:
                             cursors.append(cursor)
 
                 if len(cursors) == 0:
