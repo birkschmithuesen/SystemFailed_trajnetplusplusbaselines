@@ -315,7 +315,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QTextBrowser" name="textBrowser"/>
+             <widget class="QTextBrowser" name="training_output"/>
             </item>
            </layout>
           </item>
@@ -372,7 +372,7 @@
                </widget>
               </item>
               <item row="3" column="1">
-               <widget class="QSpinBox" name="spinBox_3">
+               <widget class="QSpinBox" name="obs_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -404,7 +404,7 @@
                </widget>
               </item>
               <item row="4" column="1">
-               <widget class="QSpinBox" name="spinBox_4">
+               <widget class="QSpinBox" name="pred_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -436,7 +436,7 @@
                </widget>
               </item>
               <item row="5" column="1">
-               <widget class="QSpinBox" name="spinBox_5">
+               <widget class="QSpinBox" name="epochs">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -448,6 +448,9 @@
                   <width>400</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="value">
+                 <number>30</number>
                 </property>
                </widget>
               </item>
@@ -465,7 +468,7 @@
                </widget>
               </item>
               <item row="6" column="1">
-               <widget class="QSpinBox" name="spinBox_6">
+               <widget class="QSpinBox" name="batch_size">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -477,6 +480,9 @@
                   <width>400</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="value">
+                 <number>1</number>
                 </property>
                </widget>
               </item>
@@ -506,6 +512,9 @@
                   <width>400</width>
                   <height>16777215</height>
                  </size>
+                </property>
+                <property name="value">
+                 <number>5</number>
                 </property>
                </widget>
               </item>
@@ -588,6 +597,9 @@
                   <height>16777215</height>
                  </size>
                 </property>
+                <property name="value">
+                 <double>0.000000000000000</double>
+                </property>
                </widget>
               </item>
               <item row="9" column="0">
@@ -600,22 +612,6 @@
                 </property>
                 <property name="text">
                  <string>step size lr scheduler</string>
-                </property>
-               </widget>
-              </item>
-              <item row="9" column="1">
-               <widget class="QSpinBox" name="spinBox_8">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-                <property name="maximumSize">
-                 <size>
-                  <width>400</width>
-                  <height>16777215</height>
-                 </size>
                 </property>
                </widget>
               </item>
@@ -722,6 +718,9 @@
                  </widget>
                 </item>
                </layout>
+              </item>
+              <item row="9" column="1">
+               <widget class="QDoubleSpinBox" name="doubleSpinBox_6"/>
               </item>
              </layout>
             </item>

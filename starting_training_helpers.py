@@ -3,6 +3,10 @@ import ujson as json
 import pandas as pd
 import numpy as np
 
+from subprocess import Popen, PIPE
+
+from trajnetbaselines.lstm.trainer import main
+
 training_dirs = ["train", "test", "val", "test_private"]
 
 def training_folder_is_valid(path):
@@ -56,3 +60,8 @@ def get_training_df_positions(training_df: pd.DataFrame):
         person_paths[index][1].append(row["track"]["y"])
 
     return person_paths
+
+def start_training_thread(training_folder_name, epochs, pred_length, obs_length):
+    args = ["python3.7", "-m", "trajnetbaselines.lstm.trainer", "--type", "social", "--path", training_folder_name, "--epochs", epochs, "--pred_length", pred_length, "--obs_length", obs_length]
+    process = Popen(args, stdout=PIPE, stderr=PIPE)
+    return process

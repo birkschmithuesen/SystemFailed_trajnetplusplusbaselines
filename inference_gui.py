@@ -3,7 +3,7 @@ import sys, os
 import matplotlib.pyplot as plt
 
 
-from PyQt5 import QtWidgets, QtCore, uic
+from PyQt5 import QtWidgets, QtCore, QtGui, uic
 from PyQt5.QtCore import QTimer
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
@@ -12,7 +12,7 @@ import pandas as pd
 
 from data_conversions_helpers import pharus_convert
 from starting_inference_helpers import start_inference_server
-from starting_training_helpers import get_training_data, training_folder_is_valid, get_training_df_positions
+from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid, get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
@@ -91,10 +91,14 @@ class Ui(QtWidgets.QMainWindow):
         self.training_convert_pharus_button = self.findChild(QtWidgets.QPushButton, 'training_convert_pharus_button')
         self.training_convert_pharus_button.clicked.connect(self.convert_pharus_data)
 
+        self.training_start_button = self.findChild(QtWidgets.QPushButton, 'training_start_button')
+        self.training_start_button.clicked.connect(self.start_training)
+
         # variables used for non UI functionality
         self.training_data_path = ""
 
         self.threads = []
+        self.training_threads = []
 
         self.show()  # Show the GUI
 
@@ -163,7 +167,7 @@ class Ui(QtWidgets.QMainWindow):
             del self.pharus_data[ped_id]
         """
 
-    def plot_graph(self):
+    def loop(self):
         """
         pharus_data = []
         for entries in [list(ped_deque) for _, ped_deque in self.pharus_data.items()]:
@@ -172,6 +176,11 @@ class Ui(QtWidgets.QMainWindow):
         """
         self.scatter_plot_item_ml.setData(self.ml_data)
         self.scatter_plot_item_pharus_obs.setData(self.pharus_obs_data)
+
+    def loop_slow(self):
+        text_window = self.findChild(QtWidgets.QTextBrowser, 'training_output')
+        if self.training_threads:
+            text_window.append(self.training_threads[0].stdout.readline().decode("utf-8") + "\n")
 
     def select_training_data(self):
         fileselection = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -232,11 +241,29 @@ class Ui(QtWidgets.QMainWindow):
         pharus_convert(self.pharus_data_path, "/home/ml/Documents/SystemFailed_trajnetplusplusbaselines/DATA_BLOCK/")
         self.show_error("Conversion completed.")
 
+    def start_training(self):
+        is_valid, msg = training_folder_is_valid(self.training_data_path)
+        if not is_valid:
+            self.show_error(msg)
+            return
+        basefolder = os.path.basename(self.training_data_path)
+        epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
+        pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
+        obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
+
+        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length)))
+
+
+
+
 # Create an instance of QtWidgets.QApplication
 app = QtWidgets.QApplication(sys.argv)
 window = Ui()  # Create an instance of our class
 
 timer = QTimer()
-timer.timeout.connect(window.plot_graph)
+timer.timeout.connect(window.loop)
 timer.start(25)
+timer2 = QTimer()
+timer2.timeout.connect(window.loop_slow)
+timer2.start(25)
 app.exec_()  # Start the

@@ -316,7 +316,7 @@ class Trainer(object):
 
         return loss.item(), loss_test.item()
 
-def main(epochs=25):
+def main(epochs=25, args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--epochs', default=epochs, type=int,
                         help='number of epochs')
@@ -418,7 +418,7 @@ def main(epochs=25):
     hyperparameters.add_argument('--col_gamma', default=2.0, type=float,
                                  help='hyperparameter in collision loss')
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     ## Fixed set of scenes if sampling
     if args.sample < 1.0:
