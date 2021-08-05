@@ -96,9 +96,13 @@ class Ui(QtWidgets.QMainWindow):
         if self.button.text() == "stop":
             return
         self.button.setText("stop")
-        self.threads = start_inference_server(model_path="OUTPUT_BLOCK/pharus_big/lstm_social_None.pkl.epoch100",
-                                              pharus_receiver_ip="localhost",
-                                              touch_designer_ip="192.168.0.2",
+        listener_ip = self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').toPlainText()
+        touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
+        fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
+        path = fileselection[0]
+        self.threads = start_inference_server(model_path=path,
+                                              pharus_receiver_ip=listener_ip,
+                                              touch_designer_ip=touch_designer_pc_ip,
                                               fps_callback=self.fps_callback,
                                               pharus_fps_callback=self.pharus_fps_callback)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
@@ -184,11 +188,16 @@ class Ui(QtWidgets.QMainWindow):
 
         person_paths = get_training_df_positions(training_data_df)
         for index, person_path in enumerate(person_paths):
+            start_marker = pg.ScatterPlotItem(
+                pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
+            start_marker.setData([{"pos": [person_path[0][0], person_path[1][0]]}])
             curve = pg.PlotCurveItem(
                 pen=pg.mkPen(width=1, color=get_rgb_val(len(person_paths), index), style=QtCore.Qt.DotLine), symbol='o', size=1)
             self.plot_view_training.addItem(curve)
+            self.plot_view_training.addItem(start_marker)
             curve.setData(person_path[0], person_path[1])
             self.plot_items_training.append(curve)
+            self.plot_items_training.append(start_marker)
 
     def reset_training_plot(self):
         for plot_item in self.plot_items_training:

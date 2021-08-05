@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1096</width>
-    <height>887</height>
+    <width>656</width>
+    <height>671</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -33,7 +33,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="inference_tab">
        <attribute name="title">
@@ -132,12 +132,12 @@
               <item row="0" column="0">
                <widget class="QLabel" name="label_3">
                 <property name="text">
-                 <string>Pharus Sender IP</string>
+                 <string>Pharus Listener IP</string>
                 </property>
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QPlainTextEdit" name="pharus_sender_ip">
+               <widget class="QPlainTextEdit" name="pharus_listener_ip">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="MinimumExpanding">
                   <horstretch>0</horstretch>
@@ -483,6 +483,12 @@
                <layout class="QHBoxLayout" name="horizontalLayout_6">
                 <item>
                  <widget class="QLabel" name="training_data_select_label">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
                   <property name="styleSheet">
                    <string notr="true">background-color: rgb(164, 0, 0);</string>
                   </property>
@@ -557,7 +563,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1096</width>
+     <width>656</width>
      <height>22</height>
     </rect>
    </property>
