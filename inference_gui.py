@@ -10,6 +10,7 @@ import pyqtgraph as pg
 
 import pandas as pd
 
+from data_conversions_helpers import pharus_convert
 from starting_inference_helpers import start_inference_server
 from starting_training_helpers import get_training_data, training_folder_is_valid, get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
@@ -84,6 +85,11 @@ class Ui(QtWidgets.QMainWindow):
         self.training_data_visualize_button = self.findChild(QtWidgets.QPushButton, 'training_visualize_data_button')
         self.training_data_visualize_button.clicked.connect(self.visualize_training_data)
 
+        self.pharus_data_select_button = self.findChild(QtWidgets.QPushButton, 'pharus_data_select_button')
+        self.pharus_data_select_button.clicked.connect(self.select_pharus_data)
+        self.pharus_data_select_label = self.findChild(QtWidgets.QLabel, 'pharus_data_select_label')
+        self.training_convert_pharus_button = self.findChild(QtWidgets.QPushButton, 'training_convert_pharus_button')
+        self.training_convert_pharus_button.clicked.connect(self.convert_pharus_data)
 
         # variables used for non UI functionality
         self.training_data_path = ""
@@ -100,6 +106,7 @@ class Ui(QtWidgets.QMainWindow):
         touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
+        print(touch_designer_pc_ip)
         self.threads = start_inference_server(model_path=path,
                                               pharus_receiver_ip=listener_ip,
                                               touch_designer_ip=touch_designer_pc_ip,
@@ -208,6 +215,22 @@ class Ui(QtWidgets.QMainWindow):
         error_dialog.showMessage(msg)
         error_dialog.exec_()
 
+    def select_pharus_data(self):
+        fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Pharus Recording (e.g., recording.trk)")
+        path = fileselection[0]
+        self.pharus_data_path = path
+        self.pharus_data_select_label.setText(os.path.basename(path))
+        self.pharus_data_select_label.setStyleSheet("background-color: rgb(78, 154, 6);")
+
+    def convert_pharus_data(self):
+        if not self.pharus_data_path:
+            self.show_error("No pharus file selected.")
+            return
+        elif not os.path.splitext(os.path.basename(self.pharus_data_path))[1] == ".trk":
+            self.show_error("Not a .trk file selected.")
+            return
+        pharus_convert(self.pharus_data_path, "/home/ml/Documents/SystemFailed_trajnetplusplusbaselines/DATA_BLOCK/")
+        self.show_error("Conversion completed.")
 
 # Create an instance of QtWidgets.QApplication
 app = QtWidgets.QApplication(sys.argv)
