@@ -33,7 +33,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="inference_tab">
        <attribute name="title">
@@ -189,7 +189,7 @@
                </widget>
               </item>
               <item row="2" column="1">
-               <widget class="QSpinBox" name="spinBox">
+               <widget class="QSpinBox" name="inference_obs_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>
@@ -209,7 +209,7 @@
                </widget>
               </item>
               <item row="3" column="1">
-               <widget class="QSpinBox" name="spinBox_2">
+               <widget class="QSpinBox" name="inference_pred_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                   <horstretch>0</horstretch>

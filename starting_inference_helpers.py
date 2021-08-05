@@ -10,11 +10,13 @@ def start_inference_server(model_path="OUTPUT_BLOCK/pharus_kreis_mit_stehenbleib
                            pharus_receiver_ip="localhost",
                            touch_designer_ip="192.168.0.2",
                            fps_callback=None,
-                           pharus_fps_callback=None):
+                           pharus_fps_callback=None,
+                           pred_length=12,
+                           obs_length=9):
     udp_splitter = start_udp_splitter(pharus_receiver_ip, touch_designer_ip)
 
     args = ["--output", model_path, "--gpu",
-            "True"]
+            "True", "--obs_length", str(obs_length), "--pred_length", str(pred_length)]
     return server_udp.main(args, touch_designer_ip, fps_callback, pharus_fps_callback).append(udp_splitter)
 
 if __name__ == "__main__":

@@ -108,6 +108,8 @@ class Ui(QtWidgets.QMainWindow):
         self.button.setText("stop")
         listener_ip = self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').toPlainText()
         touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
+        pred_length = self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').value()
+        obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
         print(touch_designer_pc_ip)
@@ -115,7 +117,9 @@ class Ui(QtWidgets.QMainWindow):
                                               pharus_receiver_ip=listener_ip,
                                               touch_designer_ip=touch_designer_pc_ip,
                                               fps_callback=self.fps_callback,
-                                              pharus_fps_callback=self.pharus_fps_callback)
+                                              pharus_fps_callback=self.pharus_fps_callback,
+                                              pred_length=pred_length,
+                                              obs_length=obs_length)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.connect(self.stop_inference_server)
