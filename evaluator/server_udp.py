@@ -24,11 +24,12 @@ PHARUS_FIELD_SIZE_Y = 9.06
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
                                               pedestrian=cursor.session_id,
-                                              x=PHARUS_FIELD_SIZE_X * cursor.position[0],
+                                              x=PHARUS_FIELD_SIZE_X *
+                                              cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=30):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
 
     pharus_sender_fps = int(pharus_sender_fps / 2.5)
 
@@ -131,8 +132,10 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 for i, _ in enumerate(prediction):
                     track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                           ped_id,
-                                                          prediction[i, 0].item(),
-                                                          prediction[i, 1].item(),
+                                                          prediction[i,
+                                                                     0].item(),
+                                                          prediction[i,
+                                                                     1].item(),
                                                           m,
                                                           scene_id)
                     prediction_paths.append(track)

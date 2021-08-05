@@ -1,17 +1,32 @@
 from collections import deque
-import sys
+import sys, os
+import matplotlib.pyplot as plt
 
-from PyQt5 import QtWidgets, uic
+
+from PyQt5 import QtWidgets, QtCore, uic
 from PyQt5.QtCore import QTimer
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
+import pandas as pd
+
 from starting_inference_helpers import start_inference_server
+from starting_training_helpers import get_training_data, training_folder_is_valid, get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
 
 PRED_LENGTH = 4
+
+cmap = plt.cm.get_cmap('rainbow')
+
+def get_rgb_val(total_n, index):
+    if index == 0:
+        rgba = cmap(0)
+        return (rgba[0]*255, rgba[1]*255, rgba[2]*255)
+    rgba = cmap(index/total_n)
+    return (rgba[0]*255, rgba[1]*255, rgba[2]*255)
+
 
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
@@ -22,18 +37,22 @@ class Ui(QtWidgets.QMainWindow):
         self.plot_view_pharus = pg.PlotWidget()
         self.plot_view_ml = pg.PlotWidget()
 
-        self.scatter_plot_item_pharus = pg.ScatterPlotItem(pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
-        self.scatter_plot_item_pharus_obs = pg.ScatterPlotItem(pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
-        self.scatter_plot_item_ml = pg.ScatterPlotItem(pen=pg.mkPen(width=5, color='g'), symbol='o', size=1)
+        self.scatter_plot_item_pharus = pg.ScatterPlotItem(
+            pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
+        self.scatter_plot_item_pharus_obs = pg.ScatterPlotItem(
+            pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
+        self.scatter_plot_item_ml = pg.ScatterPlotItem(
+            pen=pg.mkPen(width=5, color='g'), symbol='o', size=1)
         self.plot_view_pharus.addItem(self.scatter_plot_item_pharus)
         self.plot_view_pharus.setXRange(0, PHARUS_FIELD_SIZE_X)
-        self.plot_view_pharus.setYRange(0,PHARUS_FIELD_SIZE_Y)
+        self.plot_view_pharus.setYRange(0, PHARUS_FIELD_SIZE_Y)
         self.plot_view_ml.setXRange(0, PHARUS_FIELD_SIZE_X)
         self.plot_view_ml.setYRange(0, PHARUS_FIELD_SIZE_Y)
         self.plot_view_ml.addItem(self.scatter_plot_item_ml)
         self.plot_view_ml.addItem(self.scatter_plot_item_pharus_obs)
 
-        self.visualizer_tab_widget = self.findChild(QtWidgets.QTabWidget, 'visualizer')
+        self.visualizer_tab_widget = self.findChild(
+            QtWidgets.QTabWidget, 'visualizer')
         self.visualizer_tab_widget.addTab(self.plot_view_ml, "ml")
         self.visualizer_tab_widget.addTab(self.plot_view_pharus, "pharus")
 
@@ -49,6 +68,26 @@ class Ui(QtWidgets.QMainWindow):
         self.pharus_fps_deque = deque(maxlen=FPS_AVERAGING_WINDOW)
         self.ml_fps_deque = deque(maxlen=FPS_AVERAGING_WINDOW)
 
+        # training tab
+        self.plot_view_training = pg.PlotWidget()
+        self.plot_view_training.setXRange(0, PHARUS_FIELD_SIZE_X)
+        self.plot_view_training.setYRange(0, PHARUS_FIELD_SIZE_Y)
+        self.plot_items_training = []
+
+        self.visualizer_training_tab_widget = self.findChild(
+            QtWidgets.QTabWidget, 'training_visualizer')
+        self.visualizer_training_tab_widget.addTab(self.plot_view_training, "training")
+
+        self.training_data_select_button = self.findChild(QtWidgets.QPushButton, 'training_data_select_button')
+        self.training_data_select_button.clicked.connect(self.select_training_data)
+        self.training_data_select_label = self.findChild(QtWidgets.QLabel, 'training_data_select_label')
+        self.training_data_visualize_button = self.findChild(QtWidgets.QPushButton, 'training_visualize_data_button')
+        self.training_data_visualize_button.clicked.connect(self.visualize_training_data)
+
+
+        # variables used for non UI functionality
+        self.training_data_path = ""
+
         self.threads = []
 
         self.show()  # Show the GUI
@@ -57,15 +96,14 @@ class Ui(QtWidgets.QMainWindow):
         if self.button.text() == "stop":
             return
         self.button.setText("stop")
-        self.threads = start_inference_server(model_path="OUTPUT_BLOCK/pharus_kreis_mit_stehenbleiben/lstm_social_None.pkl.epoch10",
-                                             pharus_receiver_ip="192.168.0.3",
-                                             touch_designer_ip="192.168.0.2",
-                                             fps_callback=self.fps_callback,
-                                             pharus_fps_callback=self.pharus_fps_callback)
+        self.threads = start_inference_server(model_path="OUTPUT_BLOCK/pharus_big/lstm_social_None.pkl.epoch100",
+                                              pharus_receiver_ip="localhost",
+                                              touch_designer_ip="192.168.0.2",
+                                              fps_callback=self.fps_callback,
+                                              pharus_fps_callback=self.pharus_fps_callback)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.connect(self.stop_inference_server)
-
 
     def stop_inference_server(self):
         for thread in self.threads:
@@ -84,7 +122,6 @@ class Ui(QtWidgets.QMainWindow):
         for person_paths in obs_paths:
             for row in person_paths:
                 self.pharus_obs_data.append({"pos": [row.x, row.y]})
-
 
     def pharus_fps_callback(self, fps, paths):
         self.pharus_fps_deque.append(fps)
@@ -124,6 +161,44 @@ class Ui(QtWidgets.QMainWindow):
         """
         self.scatter_plot_item_ml.setData(self.ml_data)
         self.scatter_plot_item_pharus_obs.setData(self.pharus_obs_data)
+
+    def select_training_data(self):
+        fileselection = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
+        path = str(fileselection)
+        dirname = os.path.basename(path)
+        is_valid, msg = training_folder_is_valid(path)
+        if not is_valid:
+            self.show_error(msg)
+            return
+        self.training_data_select_label.setText(dirname)
+        self.training_data_select_label.setStyleSheet("background-color: rgb(78, 154, 6);")
+        self.training_data_path = path
+
+    def visualize_training_data(self):
+        training_data_df = get_training_data(self.training_data_path)
+        if type(training_data_df) is str:
+            self.show_error(training_data_df)
+            return
+
+        self.reset_training_plot()
+
+        person_paths = get_training_df_positions(training_data_df)
+        for index, person_path in enumerate(person_paths):
+            curve = pg.PlotCurveItem(
+                pen=pg.mkPen(width=1, color=get_rgb_val(len(person_paths), index), style=QtCore.Qt.DotLine), symbol='o', size=1)
+            self.plot_view_training.addItem(curve)
+            curve.setData(person_path[0], person_path[1])
+            self.plot_items_training.append(curve)
+
+    def reset_training_plot(self):
+        for plot_item in self.plot_items_training:
+            self.plot_view_training.removeItem(plot_item)
+
+    def show_error(self, msg):
+        error_dialog = QtWidgets.QErrorMessage()
+        error_dialog.showMessage(msg)
+        error_dialog.exec_()
+
 
 # Create an instance of QtWidgets.QApplication
 app = QtWidgets.QApplication(sys.argv)
