@@ -1,8 +1,9 @@
 import argparse
 import socket
 import sys
+import threading
 import time
-from queue import Queue
+from queue import Queue, Empty
 from collections import deque
 from threading import Thread
 
@@ -29,7 +30,7 @@ def cursor_to_row(timestamp, cursor):
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=30):
 
     pharus_sender_fps = int(pharus_sender_fps / 2.5)
 
@@ -166,19 +167,36 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
         q = Queue()
 
-        def prediction_loop():
-            while True:
-                paths = q.get()
-                new_frame_time = time.time()
-                pred_paths = make_prediction(paths)
-                fps = 1/(time.time() - new_frame_time)
-                fps = int(fps)
-                if ml_fps_callback:
-                    ml_fps_callback(fps, paths, pred_paths)
-                while q.qsize() > QUEUE_MAX_LENGTH:
-                    q.get()
-                sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
-                                 % (fps, q.qsize()))
+        class PredictionThread(threading.Thread):
+            def __init__(self, name="ML Prediction Thread"):
+                self._stop_event = threading.Event()
+                super().__init__(name=name)
+
+            def run(self):
+                while not self._stop_event.is_set():
+                    try:
+                        paths = q.get(timeout=1)
+                    except Empty:
+                        continue
+                    new_frame_time = time.time()
+                    pred_paths = make_prediction(paths)
+                    fps = 1/(time.time() - new_frame_time)
+                    fps = int(fps)
+                    if ml_fps_callback:
+                        ml_fps_callback(fps, paths, pred_paths)
+                    while q.qsize() > QUEUE_MAX_LENGTH:
+                        try:
+                            paths = q.get(timeout=1)
+                        except Empty:
+                            continue
+                    sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
+                                     % (fps, q.qsize()))
+
+                udp_socket.close()
+
+            def join(self, timeout=None):
+                self._stop_event.set()
+                super().join(timeout)
 
         class MyListener(TuioListener):
             def __init__(self):
@@ -259,10 +277,10 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
         client.add_listener(listener)
         t1.start()
 
-        t2 = Thread(target=prediction_loop)
+        t2 = PredictionThread()
         t2.start()
 
-        return [t1, t2]
+        return [client, t1, t2]
 
 
 def main(args, touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_callback=None):

@@ -11,8 +11,8 @@ import pyqtgraph as pg
 import pandas as pd
 
 from data_conversions_helpers import pharus_convert
-from starting_inference_helpers import start_inference_server
-from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid, get_training_df_positions
+from starting_inference_helpers import start_inference_server, start_udp_splitter
+from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid, pharus_recording_is_valid,get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
@@ -97,8 +97,10 @@ class Ui(QtWidgets.QMainWindow):
         # variables used for non UI functionality
         self.training_data_path = ""
 
+
         self.threads = []
         self.training_threads = []
+        self.udp_splitter_thread = None
 
         self.show()  # Show the GUI
 
@@ -112,21 +114,41 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
-        print(touch_designer_pc_ip)
-        self.threads = start_inference_server(model_path=path,
-                                              pharus_receiver_ip=listener_ip,
-                                              touch_designer_ip=touch_designer_pc_ip,
-                                              fps_callback=self.fps_callback,
-                                              pharus_fps_callback=self.pharus_fps_callback,
-                                              pred_length=pred_length,
-                                              obs_length=obs_length)
+        client_and_threads = start_inference_server(model_path=path,
+                                                    pharus_receiver_ip=listener_ip,
+                                                    touch_designer_ip=touch_designer_pc_ip,
+                                                    fps_callback=self.fps_callback,
+                                                    pharus_fps_callback=self.pharus_fps_callback,
+                                                    pred_length=pred_length,
+                                                    obs_length=obs_length)
+
+        client = client_and_threads[0]
+        t1 = client_and_threads[1]
+        t2 = client_and_threads[2]
+
+        self.threads.extend([(client, t1), t2])
+
+        if not self.udp_splitter_thread:
+            self.udp_splitter_thread = start_udp_splitter(listener_ip, touch_designer_pc_ip)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
+        self.button.clicked.disconnect()
         self.button.clicked.connect(self.stop_inference_server)
 
     def stop_inference_server(self):
+        if self.button.text() == "start":
+            return
+        self.button.setText("start")
         for thread in self.threads:
-            thread.terminate()
+            if type(thread) is tuple:
+                thread[0].shutdown()
+                thread[1].join()
+            else:
+                thread.join()
+
+        self.threads.clear()
+        self.button.clicked.disconnect()
+        self.button.clicked.connect(self.start_inference)
 
     def fps_callback(self, fps, obs_paths, paths):
         self.ml_fps_deque.append(fps)
@@ -231,17 +253,20 @@ class Ui(QtWidgets.QMainWindow):
     def select_pharus_data(self):
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Pharus Recording (e.g., recording.trk)")
         path = fileselection[0]
+        is_valid, msg = pharus_recording_is_valid(path)
+        if not is_valid:
+            self.show_error(msg)
+            return
         self.pharus_data_path = path
         self.pharus_data_select_label.setText(os.path.basename(path))
         self.pharus_data_select_label.setStyleSheet("background-color: rgb(78, 154, 6);")
 
     def convert_pharus_data(self):
-        if not self.pharus_data_path:
-            self.show_error("No pharus file selected.")
+        is_valid, msg = pharus_recording_is_valid(self.pharus_data_path)
+        if not is_valid:
+            self.show_error(msg)
             return
-        elif not os.path.splitext(os.path.basename(self.pharus_data_path))[1] == ".trk":
-            self.show_error("Not a .trk file selected.")
-            return
+        self.show_error("Starting conversion")
         pharus_convert(self.pharus_data_path, "/home/ml/Documents/SystemFailed_trajnetplusplusbaselines/DATA_BLOCK/")
         self.show_error("Conversion completed.")
 

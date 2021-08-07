@@ -65,3 +65,10 @@ def start_training_thread(training_folder_name, epochs, pred_length, obs_length)
     args = ["python3.7", "-m", "trajnetbaselines.lstm.trainer", "--type", "social", "--path", training_folder_name, "--epochs", epochs, "--pred_length", pred_length, "--obs_length", obs_length]
     process = Popen(args, stdout=PIPE, stderr=PIPE)
     return process
+
+def pharus_recording_is_valid(path):
+    if not path:
+        return (False, "No pharus file selected.")
+    elif not os.path.splitext(os.path.basename(path))[1] == ".trk":
+        return (False, "Not a .trk file selected.")
+    return (True, "")
