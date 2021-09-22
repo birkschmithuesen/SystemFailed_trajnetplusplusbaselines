@@ -33,7 +33,7 @@ class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         # Call the inherited classes __init__ method
         super(Ui, self).__init__()
-        uic.loadUi('inference_server.ui', self)  # Load the .ui file
+        uic.loadUi('gui.ui', self)  # Load the .ui file
 
         self.plot_view_pharus = pg.PlotWidget()
         self.plot_view_ml = pg.PlotWidget()
@@ -267,7 +267,7 @@ class Ui(QtWidgets.QMainWindow):
             self.show_error(msg)
             return
         self.show_error("Starting conversion")
-        pharus_convert(self.pharus_data_path, "/home/ml/Documents/SystemFailed_trajnetplusplusbaselines/DATA_BLOCK/")
+        pharus_convert(self.pharus_data_path, "/DATA_BLOCK/")
         self.show_error("Conversion completed.")
 
     def start_training(self):
