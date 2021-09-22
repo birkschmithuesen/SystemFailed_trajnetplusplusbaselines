@@ -1,6 +1,8 @@
 SystemFailed trajectory prediction
 ================================================
 
+This repository implements a GUI for data conversion from a Pharus laser tracker recording format to trajnetplusplus format. It also implements training a social lstm and running an inference server listening for live Pharus laser tracker data.
+
 - ``cd SystemFailed_trajnetplusplusbaselines``
 
 - Start server for live trajectory inference

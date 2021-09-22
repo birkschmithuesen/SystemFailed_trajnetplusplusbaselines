@@ -71,4 +71,6 @@ def pharus_recording_is_valid(path):
         return (False, "No pharus file selected.")
     elif not os.path.splitext(os.path.basename(path))[1] == ".trk":
         return (False, "Not a .trk file selected.")
+    elif "test" in path or "train" in path or "val" in path:
+        return (False, "Filename should not contain 'test' or 'train' or 'val'.")
     return (True, "")
