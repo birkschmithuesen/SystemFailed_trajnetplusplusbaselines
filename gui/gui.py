@@ -33,7 +33,7 @@ class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         # Call the inherited classes __init__ method
         super(Ui, self).__init__()
-        uic.loadUi('gui.ui', self)  # Load the .ui file
+        uic.loadUi('gui/gui.ui', self)  # Load the .ui file
 
         self.plot_view_pharus = pg.PlotWidget()
         self.plot_view_ml = pg.PlotWidget()

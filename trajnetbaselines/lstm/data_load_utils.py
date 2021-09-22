@@ -30,10 +30,10 @@ def prepare_data(path, subset='/train/', sample=1.0, goals=True):
     ## Check if folder exists
     if not os.path.isdir(path + subset):
         if 'train' in subset:
-            print("Train folder does NOT exist")
+            print("Train folder does NOT exist in {}".format(path))
             exit()
         if 'val' in subset:
-            print("Validation folder does NOT exist")
+            print("Validation folder does NOT exist in {}".format(path))
             return None, None, False
 
     ## read goal files
