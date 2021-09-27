@@ -8,6 +8,7 @@ from collections import deque
 from threading import Thread
 
 import torch
+import numpy as np
 from pythontuio import TuioClient
 from pythontuio import Cursor
 from pythontuio import TuioListener
@@ -20,6 +21,7 @@ UDP_PORT = 6666
 TUIO_PORT = 3334
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
+MOVING_AVG_WINDOW_LENGTH = 30
 
 
 def cursor_to_row(timestamp, cursor):
@@ -202,6 +204,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def __init__(self):
                 super().__init__()
                 self.people = {}
+                self.people_deques = {}
                 self.bundle = []
                 self.fseq = 0
                 self.frame_count = 0
@@ -216,6 +219,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def add_tuio_cursor(self, cursor: Cursor):
                 length = int(args.obs_length*pharus_sender_fps + 1)
                 self.people[cursor.session_id] = deque(maxlen=length)
+                self.people_deques[cursor.session_id] = deque(maxlen=MOVING_AVG_WINDOW_LENGTH)
                 self.put_cursor(cursor)
 
             def update_tuio_cursor(self, cursor: Cursor):
@@ -226,6 +230,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def remove_tuio_cursor(self, cursor: Cursor):
                 if cursor.session_id in self.people:
                     del self.people[cursor.session_id]
+                    del self.people_deques[cursor.session_id]
 
             def refresh(self, fseq):
                 self.new_frame_time = time.time()
@@ -238,6 +243,9 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                     cursor_copy.position = cursor.position
                     item = (fseq, cursor_copy)
                     self.people[cursor.session_id].append(item)
+                for session_id, dq in self.people.items():
+                    if len(dq) == dq.maxlen:
+                        self.people_deques[session_id].append(list(dq))
                 paths = self.get_paths()
                 if paths:
                     q.put(paths)
@@ -247,12 +255,41 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 if self.fps_callback:
                   self.fps_callback(fps, paths)
 
+            def average_path(self, session_id):
+                if not session_id in self.people_deques:
+                    print("Error session id {} not in people_deques: {}".format(session_id, str(self.people_deques)))
+                    return
+                average_x = np.zeros(self.people[session_id].maxlen)
+                average_y = np.zeros(self.people[session_id].maxlen)
+                for dq_list in self.people_deques[session_id]:
+                    x_pos_list = [tup[1].position[0] for tup in dq_list]
+                    y_pos_list = [tup[1].position[1] for tup in dq_list]
+                    x_pos_list = np.array(x_pos_list)
+                    y_pos_list = np.array(y_pos_list)
+                    average_x += x_pos_list
+                    average_y += y_pos_list
+                buffer_len = len(self.people_deques[session_id])
+                average_x /= buffer_len
+                average_y /= buffer_len
+
+                cursors = []
+                zipped_pos = zip(average_x, average_y)
+                for (timestamp, cursor), pos in zip(list(self.people[session_id]), zipped_pos):
+                    cursor_copy = Cursor(session_id)
+                    cursor_copy.position = pos
+                    cursors.append((timestamp, cursor))
+
+                return cursors
+
+
+
             def get_paths(self):
                 cursors = []
                 paths = []
-                for _, dq in self.people.items():
+                for session_id, dq in self.people.items():
+                    avg_dq_list = self.average_path(session_id)
                     if len(dq) == dq.maxlen:
-                        for cursor in list(dq)[::pharus_sender_fps]:
+                        for cursor in avg_dq_list[::pharus_sender_fps]:
                             cursors.append(cursor)
 
                 if len(cursors) == 0:
