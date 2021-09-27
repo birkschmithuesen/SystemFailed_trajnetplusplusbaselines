@@ -31,6 +31,14 @@ def cursor_to_row(timestamp, cursor):
                                               cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
 
+def resize_deques_dict(deques_dict, size):
+    deques_dict_copy = {}
+    for session_id, dq in deques_dict.items():
+        deques_dict_copy[session_id] = deque(maxlen=size)
+        for item in list(dq):
+            deques_dict_copy[session_id].append(item)
+    return deques_dict_copy
+
 
 def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=30):
 
@@ -213,6 +221,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.ml_fps = 0
                 self.fps_callback = pharus_fps_callback
                 self.sliding_window_size = SLIDING_WINDOW_SIZE
+                self.update_obs_length_size = False
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -255,6 +264,9 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 if self.fps_callback:
                   self.fps_callback(fps, paths)
+                if self.update_obs_length_size:
+                    self.finalize_update_obs_length()
+                    self.update_obs_length_size = False
 
             def average_path(self, session_id):
                 if not session_id in self.people_deques:
@@ -284,19 +296,19 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
             def update_sliding_window_size(self, size):
                 self.sliding_window_size = size
-                self.people_deques_copy = {}
-                for session_id, dq in self.people_deques.items():
-                    self.people_deques_copy[session_id] = deque(maxlen=size)
-                    for item in list(dq):
-                        self.people_deques_copy[session_id].append(item)
-                self.people_deques = self.people_deques_copy
+                self.people_deques = resize_deques_dict(self.people_deques, size)
                 print("Updated sliding window size to {}".format(size))
 
             def update_pred_length(self, pred_length):
                 args.pred_length = pred_length
 
             def update_obs_length(self, obs_length):
-                args.obs_length = obs_length
+                self.update_obs_length_size = obs_length
+
+            def finalize_update_obs_length(self):
+                self.people = {}
+                self.people_deques = {}
+                args.obs_length = self.update_obs_length_size
 
             def get_paths(self):
                 cursors = []
