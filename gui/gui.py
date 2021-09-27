@@ -130,6 +130,9 @@ class Ui(QtWidgets.QMainWindow):
 
         if not self.udp_splitter_thread:
             self.udp_splitter_thread = start_udp_splitter(listener_ip, touch_designer_pc_ip)
+        self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').valueChanged.connect(client._listener[0].update_pred_length)
+        self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').valueChanged.connect(client._listener[0].update_obs_length)
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(client._listener[0].update_sliding_window_size)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.disconnect()
@@ -147,6 +150,7 @@ class Ui(QtWidgets.QMainWindow):
                 thread.join()
 
         self.threads.clear()
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.disconnect()
         self.button.clicked.disconnect()
         self.button.clicked.connect(self.start_inference)
 

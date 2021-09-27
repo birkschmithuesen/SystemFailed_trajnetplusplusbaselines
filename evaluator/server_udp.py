@@ -21,7 +21,7 @@ UDP_PORT = 6666
 TUIO_PORT = 3334
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
-MOVING_AVG_WINDOW_LENGTH = 30
+SLIDING_WINDOW_SIZE = 30
 
 
 def cursor_to_row(timestamp, cursor):
@@ -212,6 +212,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.new_frame_time = 0
                 self.ml_fps = 0
                 self.fps_callback = pharus_fps_callback
+                self.sliding_window_size = SLIDING_WINDOW_SIZE
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -219,7 +220,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def add_tuio_cursor(self, cursor: Cursor):
                 length = int(args.obs_length*pharus_sender_fps + 1)
                 self.people[cursor.session_id] = deque(maxlen=length)
-                self.people_deques[cursor.session_id] = deque(maxlen=MOVING_AVG_WINDOW_LENGTH)
+                self.people_deques[cursor.session_id] = deque(maxlen=self.sliding_window_size)
                 self.put_cursor(cursor)
 
             def update_tuio_cursor(self, cursor: Cursor):
@@ -281,7 +282,21 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 return cursors
 
+            def update_sliding_window_size(self, size):
+                self.sliding_window_size = size
+                self.people_deques_copy = {}
+                for session_id, dq in self.people_deques.items():
+                    self.people_deques_copy[session_id] = deque(maxlen=size)
+                    for item in list(dq):
+                        self.people_deques_copy[session_id].append(item)
+                self.people_deques = self.people_deques_copy
+                print("Updated sliding window size to {}".format(size))
 
+            def update_pred_length(self, pred_length):
+                args.pred_length = pred_length
+
+            def update_obs_length(self, obs_length):
+                args.obs_length = obs_length
 
             def get_paths(self):
                 cursors = []
