@@ -9,30 +9,32 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
 
 ### Start softwares
 #### Pharus
-- pharus is here: ``cd /home/ml/pharus/bin/```
-- start pharus-replay: add recorded file as argument ``./pharus /home/ml/Documents/SystemFailed_trajnetplusplusdataset/data/raw/pharus/publikum_lindenfels.trk``
+- pharus is here: `cd /home/ml/pharus/bin/`
+- start pharus-replay: add recorded file as argument `./pharus /home/ml/Documents/SystemFailed_trajnetplusplusdataset/data/raw/pharus/publikum_lindenfels.trk`
 - Tracker -> Track Gen mode: unconfirmed
 - Link: add TUIO Sender 127.0.0.1
 #### ML Software
-- ML software is here: ``/home/ml/Documents/SystemFailed_trajnetplusplusbaselines``
-- start ML GUI with ``python3.7 gui/gui.py``
-#### Load Model by clicking "start inference" button
-- models are currently stored in "OUPTU_BLOCK"
-- best model right now are "publikum_lindenfels"
-- choose file with ".epoch" not with ".state"
 
-### Usage
-#### sliding window frames
-- smoothes the input data 
-#### Pharus Listener IP 
-- when Pharus on same computer: 127.0.0.1
-- IP needs to be changed, before "start" is pressed to take effect
-#### TD PC IP
-- a.k.a where the prediciton is sent to
-- IP needs to be changed, before "start" is pressed to take effect
-#### Buttons
-- stop doesn't work. Just restart the whole program
-#### Training
+- ML software is here: `/home/ml/Documents/SystemFailed_trajnetplusplusbaselines`
+- start ML GUI with `python3.7 gui/gui.py`
+
+### GUI Usage
+#### Inference Tab
+- Load Model by clicking "start inference" button
+    - models are currently stored in `OUTPUT_BLOCK`
+    - best model right now is `publikum_lindenfels`
+    - choose file with ending `.epoch` not with `.state`
+ - sliding window frames
+    - smoothes the input data
+ - Pharus Listener IP 
+    - when Pharus on same computer: 127.0.0.1
+    - IP needs to be changed, before "start" is pressed to take effect
+ - TD PC IP
+    - a.k.a where the prediciton is sent to
+    - IP needs to be changed, before "start" is pressed to take effect
+ - start/stop button
+    - stop doesn't work. Just restart the whole program
+#### Training Tab
 - train 50 - 80 epochs at least
 
 
