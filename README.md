@@ -67,6 +67,9 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     
 - Train model (preloading weights from an existing model)
     - ``python3.7 -m trajnetbaselines.lstm.trainer --type social --path pharus_saturday --load-state OUTPUT_BLOCK/trajdata/lstm_social_None_uni.pkl.epoch25 --epochs 50``
+    - --path -> select training data set
+    - --load-state -> select model to continue
+    - --epochs -> number of epochs to train (the number is not how many epochs will get trained, but till what number. When The model is already trained with 25 epochs, the argument ``--epochs 50``will train for 25 epochs more
 
 - Visualize predictions:
    - ``python3.7 -m  evaluator.visualize_predictions ../DATA_BLOCK/pharus_saturday/test/5personen.ndjson ../DATA_BLOCK/pharus_saturday/test_pred/lstm_social_None_crowd.epoch25_modes1/5personen.ndjson -o 5pers_crowd_epoch25``
