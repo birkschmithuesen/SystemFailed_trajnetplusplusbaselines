@@ -26,6 +26,7 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     - choose file with ending `.epoch` not with `.state`
  - sliding window frames
     - smoothes the input data
+ - observation length (not longer then choosen in the training)
  - Pharus Listener IP 
     - when Pharus on same computer: 127.0.0.1
     - IP needs to be changed, before "start" is pressed to take effect
@@ -36,6 +37,25 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     - stop doesn't work. Just restart the whole program
 #### Training Tab
 - train 50 - 80 epochs at least
+- 1. convert pharus data to scene format
+    - select pharus data. Currently stored in: ``/home/ml/Documents/SystemFailed_trajnetplusplusdataset/data/raw``
+    - destination folder is: ``DATA_BLOCK``
+- 2. visualize szene data
+    - select dataset from ``DATA_BLOCK`` to visualize
+    - select whole folder
+    - red dot marks the start of the path
+- 3. train network
+    - to combine several training data:
+        - copy a mix from *.json files in ``train`` folder in the respective training dataset
+    - to use all data for training, a.k.a skip testing and validation data
+        - copy all files from ``val`` and ``test`` and ``test_private``in train
+    - all fields under batch size are currently not in use
+    - observation length: leave deafult 9
+    - prediction length: leave default 6
+    - terminal in GUI may freeze
+    - when ready, there comes a PopUp
+    - destination folder is: ``OUTPUT_BLOCK``
+
 
 
 ### Command line
