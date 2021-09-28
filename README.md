@@ -16,14 +16,24 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
 #### ML Software
 - ML software is here: ``/home/ml/Documents/SystemFailed_trajnetplusplusbaselines``
 - start ML GUI with ``python3.7 gui/gui.py``
+#### Load Model by clicking "start inference" button
+- models are currently stored in "OUPTU_BLOCK"
+- best model right now are "publikum_lindenfels"
+- choose file with ".epoch" not with ".state"
 
 ### Usage
 #### sliding window frames
 - smoothes the input data 
-#### Pharus Listener IP
+#### Pharus Listener IP 
 - when Pharus on same computer: 127.0.0.1
+- IP needs to be changed, before "start" is pressed to take effect
 #### TD PC IP
 - a.k.a where the prediciton is sent to
+- IP needs to be changed, before "start" is pressed to take effect
+#### Buttons
+- stop doesn't work. Just restart the whole program
+#### Training
+- train 50 - 80 epochs at least
 
 
 ### Command line
