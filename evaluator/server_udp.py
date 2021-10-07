@@ -126,7 +126,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             udp_socket.sendto(
                 bytes(formatted_msg, "utf-8"), (touch_designer_ip, UDP_PORT))
 
-        prediction_deque = deque(maxlen=6)
+        prediction_deque = deque(maxlen=25)
 
         def make_prediction(paths):
             scene_goal = []
