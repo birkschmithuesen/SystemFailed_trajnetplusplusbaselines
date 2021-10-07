@@ -40,7 +40,7 @@ def resize_deques_dict(deques_dict, size):
     return deques_dict_copy
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=30):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
 
     pharus_sender_fps = int(pharus_sender_fps / 2.5)
 
