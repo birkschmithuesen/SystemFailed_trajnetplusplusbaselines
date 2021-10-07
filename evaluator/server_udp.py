@@ -23,6 +23,21 @@ PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
 SLIDING_WINDOW_SIZE = 30
 
+def average_prediction_path(ped_id, n, x, y, path_deque):
+    prev_vals = []
+    for path_dict in list(path_deque):
+        if ped_id in path_dict:
+            prev_vals.append(path_dict[ped_id])
+    #if len(prev_vals) == 0:
+    #    return (x, y)
+
+    xy_vals = [pred_list[n] for pred_list in prev_vals]
+    x_vals = [coord[0] for coord in xy_vals]
+    y_vals = [coord[1] for coord in xy_vals]
+    x_avg = (sum(x_vals) + x) / (len(x_vals) + 1)
+    y_avg = (sum(y_vals) + y) / (len(y_vals) + 1)
+    return (x_avg, y_avg)
+
 
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
@@ -111,6 +126,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             udp_socket.sendto(
                 bytes(formatted_msg, "utf-8"), (touch_designer_ip, UDP_PORT))
 
+        prediction_deque = deque(maxlen=6)
+
         def make_prediction(paths):
             scene_goal = []
             for _, _ in enumerate(paths):
@@ -125,6 +142,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
             # Extract 1) first_frame, 2) frame_diff 3) ped_ids for writing predictions
             prediction_paths = []
+            prediction_paths_dict = {}
             scene_id = 1
             predictions = prediction_list
             observed_path = paths[0]
@@ -141,12 +159,16 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 # Write Primary
                 msg = ""
                 for i, _ in enumerate(prediction):
+                    x = prediction[i,0].item()
+                    y = prediction[i,1].item()
+                    avg_x, avg_y = average_prediction_path(ped_id, i, x, y, prediction_deque)
+                    if not ped_id in prediction_paths_dict:
+                        prediction_paths_dict[ped_id] = []
+                    prediction_paths_dict[ped_id].append((x,y))
                     track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                           ped_id,
-                                                          prediction[i,
-                                                                     0].item(),
-                                                          prediction[i,
-                                                                     1].item(),
+                                                          avg_x,
+                                                          avg_y,
                                                           m,
                                                           scene_id)
                     prediction_paths.append(track)
@@ -160,19 +182,24 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                     msg = ""
                     neigh = neigh_predictions[:, n]
                     for j, _ in enumerate(neigh):
+                        ped_id = ped_id_[n]
+                        x = neigh[j, 0].item()
+                        y = neigh[j, 1].item()
+                        x_avg, y_avg = average_prediction_path(ped_id, j, x, y, prediction_deque)
+                        if not ped_id in prediction_paths_dict:
+                            prediction_paths_dict[ped_id] = []
+                        prediction_paths_dict[ped_id].append((x,y))
                         track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
-                                                              ped_id_[n],
-                                                              neigh[j, 0].item(
-                                                              ),
-                                                              neigh[j, 1].item(
-                                                              ),
+                                                              ped_id,
+                                                              x_avg,
+                                                              y_avg,
                                                               m,
                                                               scene_id)
                         msg += trajnetplusplustools.writers.trajnet(
                             track) + ', '
                         prediction_paths.append(track)
                     send_to_touchdesigner(msg)
-
+            prediction_deque.append(prediction_paths_dict)
             return prediction_paths
 
         q = Queue()

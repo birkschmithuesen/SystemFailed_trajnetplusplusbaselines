@@ -7,7 +7,54 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
 
 ### Install
 
-### GUI
+### Start softwares
+#### Pharus
+- pharus is here: `cd /home/ml/pharus/bin/`
+- start pharus-replay: add recorded file as argument `./pharus /home/ml/Documents/SystemFailed_trajnetplusplusdataset/data/raw/pharus/publikum_lindenfels.trk`
+- Tracker -> Track Gen mode: unconfirmed
+- Link: add TUIO Sender 127.0.0.1
+#### ML Software
+
+- ML software is here: `/home/ml/Documents/SystemFailed_trajnetplusplusbaselines`
+- start ML GUI with `python3.7 gui/gui.py`
+
+### GUI Usage
+#### Inference Tab
+- Load Model by clicking "start inference" button
+    - models are currently stored in `OUTPUT_BLOCK`
+    - best model right now is `publikum_lindenfels`
+    - choose file with ending `.epoch` not with `.state`
+ - sliding window frames
+    - smoothes the input data
+ - observation length (not longer then choosen in the training)
+ - Pharus Listener IP 
+    - when Pharus on same computer: 127.0.0.1
+    - IP needs to be changed, before "start" is pressed to take effect
+ - TD PC IP
+    - a.k.a where the prediciton is sent to
+    - IP needs to be changed, before "start" is pressed to take effect
+ - start/stop button
+    - stop doesn't work. Just restart the whole program
+#### Training Tab
+- train 50 - 80 epochs at least
+- 1. convert pharus data to scene format
+    - select pharus data. Currently stored in: ``/home/ml/Documents/SystemFailed_trajnetplusplusdataset/data/raw``
+    - destination folder is: ``DATA_BLOCK``
+- 2. visualize szene data
+    - select dataset from ``DATA_BLOCK`` to visualize
+    - select whole folder
+    - red dot marks the start of the path
+- 3. train network
+    - to combine several training data:
+        - copy a mix from *.json files in ``train`` folder in the respective training dataset
+    - to use all data for training, a.k.a skip testing and validation data
+        - copy all files from ``val`` and ``test`` and ``test_private``in train
+    - all fields under batch size are currently not in use
+    - observation length: leave deafult 9
+    - prediction length: leave default 6
+    - terminal in GUI may freeze
+    - when ready, there comes a PopUp
+    - destination folder is: ``OUTPUT_BLOCK``
 
 
 
@@ -20,6 +67,9 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     
 - Train model (preloading weights from an existing model)
     - ``python3.7 -m trajnetbaselines.lstm.trainer --type social --path pharus_saturday --load-state OUTPUT_BLOCK/trajdata/lstm_social_None_uni.pkl.epoch25 --epochs 50``
+    - --path -> select training data set
+    - --load-state -> select model to continue
+    - --epochs -> number of epochs to train (the number is not how many epochs will get trained, but till what number. When The model is already trained with 25 epochs, the argument ``--epochs 50``will train for 25 epochs more
 
 - Visualize predictions:
    - ``python3.7 -m  evaluator.visualize_predictions ../DATA_BLOCK/pharus_saturday/test/5personen.ndjson ../DATA_BLOCK/pharus_saturday/test_pred/lstm_social_None_crowd.epoch25_modes1/5personen.ndjson -o 5pers_crowd_epoch25``
