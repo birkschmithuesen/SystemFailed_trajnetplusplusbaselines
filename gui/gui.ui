@@ -33,7 +33,7 @@
        </size>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="inference_tab">
        <attribute name="title">
@@ -797,6 +797,13 @@
                 </property>
                 <property name="text">
                  <string>start training</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="continue_training_button">
+                <property name="text">
+                 <string>continue training</string>
                 </property>
                </widget>
               </item>

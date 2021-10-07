@@ -94,6 +94,9 @@ class Ui(QtWidgets.QMainWindow):
         self.training_start_button = self.findChild(QtWidgets.QPushButton, 'training_start_button')
         self.training_start_button.clicked.connect(self.start_training)
 
+        self.training_start_button = self.findChild(QtWidgets.QPushButton, 'continue_training_button')
+        self.training_start_button.clicked.connect(self.continue_training)
+
         # variables used for non UI functionality
         self.training_data_path = ""
 
@@ -286,6 +289,20 @@ class Ui(QtWidgets.QMainWindow):
 
         self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length)))
 
+    def continue_training(self):
+        is_valid, msg = training_folder_is_valid(self.training_data_path)
+        if not is_valid:
+            self.show_error(msg)
+            return
+        basefolder = os.path.basename(self.training_data_path)
+        epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
+        pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
+        obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
+
+        fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
+        path = fileselection[0]
+
+        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length), prev_model_path=path))
 
 
 
