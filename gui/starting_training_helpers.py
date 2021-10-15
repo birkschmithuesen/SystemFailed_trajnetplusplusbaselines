@@ -61,8 +61,10 @@ def get_training_df_positions(training_df: pd.DataFrame):
 
     return person_paths
 
-def start_training_thread(training_folder_name, epochs, pred_length, obs_length, prev_model_path=False):
-    args = ["python3.7", "-m", "trajnetbaselines.lstm.trainer", "--type", "social", "--path", training_folder_name, "--epochs", epochs, "--pred_length", pred_length, "--obs_length", obs_length]
+def start_training_thread(training_folder_name, epochs, pred_length, obs_length, batch_size, learning_rate, step_size, save_every_n_epochs, prev_model_path=False):
+    args = ["python3.7", "-m", "trajnetbaselines.lstm.trainer", "--type", "social", "--path", training_folder_name,
+            "--epochs", epochs, "--pred_length", pred_length, "--obs_length", obs_length, "--save_every", save_every_n_epochs,
+            "--batch_size", batch_size, "--lr", learning_rate, "--step_size", step_size]
     if prev_model_path:
         args.extend(["--load-state", prev_model_path])
     process = Popen(args, stdout=PIPE, stderr=PIPE)

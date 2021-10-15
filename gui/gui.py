@@ -121,6 +121,7 @@ class Ui(QtWidgets.QMainWindow):
             self.findChild(QtWidgets.QSpinBox, 'obs_length').setValue(int(self.settings.value('obs_length')))
             self.findChild(QtWidgets.QSpinBox, 'batch_size').setValue(int(self.settings.value('batch_size')))
             self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').setValue(float(self.settings.value('learning_rate')))
+            self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').setValue(int(self.settings.value('step_size_lr_scheduler')))
             self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(int(self.settings.value('save_every_n_epochs')))
         except:
             pass
@@ -137,6 +138,7 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
         batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
         learning_rate = self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').value()
+        step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
         save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
 
         self.settings.setValue('pharus_listener_ip', pharus_listener_ip)
@@ -150,6 +152,7 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue('obs_length', obs_length)
         self.settings.setValue('batch_size', batch_size)
         self.settings.setValue('learning_rate', learning_rate)
+        self.settings.setValue('step_size_lr_scheduler', step_size_lr_scheduler)
         self.settings.setValue('obs_length', obs_length)
         self.settings.setValue('save_every_n_epochs', save_every_n_epochs)
 
@@ -291,7 +294,8 @@ class Ui(QtWidgets.QMainWindow):
                 pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
             start_marker.setData([{"pos": [person_path[0][0], person_path[1][0]]}])
             curve = pg.PlotCurveItem(
-                pen=pg.mkPen(width=1, color=get_rgb_val(len(person_paths), index), style=QtCore.Qt.DotLine), symbol='o', size=1)
+                pen=pg.mkPen(width=1, color=get_rgb_val(len(person_paths), index),
+                             style=QtCore.Qt.DotLine), symbol='o', size=1)
             self.plot_view_training.addItem(curve)
             self.plot_view_training.addItem(start_marker)
             curve.setData(person_path[0], person_path[1])
@@ -336,8 +340,14 @@ class Ui(QtWidgets.QMainWindow):
         epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
         obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
+        batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
+        save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
+        learning_rate = self.findChild(QtWidgets.QSpinBox, 'learning_rate').value()
+        step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
 
-        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length)))
+        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length),
+                                                           str(batch_size), str(learning_rate),
+                                                           str(step_size_lr_scheduler), str(save_every_n_epochs)))
 
     def continue_training(self):
         is_valid, msg = training_folder_is_valid(self.training_data_path)
@@ -348,11 +358,18 @@ class Ui(QtWidgets.QMainWindow):
         epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
         obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
+        batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
+        save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
+        learning_rate = self.findChild(QtWidgets.QSpinBox, 'learning_rate').value()
+        step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
 
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
 
-        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length), prev_model_path=path))
+        self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length),
+                                                           str(batch_size), str(learning_rate),
+                                                           str(step_size_lr_scheduler), str(save_every_n_epochs),
+                                                           prev_model_path=path))
 
 
 
