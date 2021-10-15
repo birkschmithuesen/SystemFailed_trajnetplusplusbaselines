@@ -326,6 +326,9 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.people_deques = resize_deques_dict(self.people_deques, size)
                 print("Updated sliding window size to {}".format(size))
 
+            def update_sliding_window_output_size(self, size):
+                prediction_deque = deque(maxlen=size)
+
             def update_pred_length(self, pred_length):
                 args.pred_length = pred_length
 

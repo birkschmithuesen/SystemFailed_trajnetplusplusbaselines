@@ -12,7 +12,8 @@ import pandas as pd
 
 from data_conversions_helpers import pharus_convert
 from starting_inference_helpers import start_inference_server, start_udp_splitter
-from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid, pharus_recording_is_valid,get_training_df_positions
+from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid,\
+    pharus_recording_is_valid,get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
@@ -111,18 +112,27 @@ class Ui(QtWidgets.QMainWindow):
 
     def load_settings(self):
         try:
-            self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').setPlainText(self.settings.value('pharus_listener_ip'))
-            self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').setPlainText(self.settings.value('touch_designer_pc_ip'))
-            self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').setValue(int(self.settings.value('inference_pred_length')))
-            self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').setValue(int(self.settings.value('sliding_window_frames')))
+            self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').setPlainText(
+                self.settings.value('pharus_listener_ip'))
+            self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').setPlainText(
+                self.settings.value('touch_designer_pc_ip'))
+            self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').setValue(
+                int(self.settings.value('inference_pred_length')))
+            self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').setValue(
+                int(self.settings.value('sliding_window_frames')))
+            self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').setValue(
+                int(self.settings.value('sliding_window_frames_output')))
 
             self.findChild(QtWidgets.QSpinBox, 'epochs').setValue(int(self.settings.value('epochs')))
             self.findChild(QtWidgets.QSpinBox, 'pred_length').setValue(int(self.settings.value('pred_length')))
             self.findChild(QtWidgets.QSpinBox, 'obs_length').setValue(int(self.settings.value('obs_length')))
             self.findChild(QtWidgets.QSpinBox, 'batch_size').setValue(int(self.settings.value('batch_size')))
-            self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').setValue(float(self.settings.value('learning_rate')))
-            self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').setValue(int(self.settings.value('step_size_lr_scheduler')))
-            self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(int(self.settings.value('save_every_n_epochs')))
+            self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').setValue(
+                float(self.settings.value('learning_rate')))
+            self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').setValue(
+                int(self.settings.value('step_size_lr_scheduler')))
+            self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(
+                int(self.settings.value('save_every_n_epochs')))
         except:
             pass
 
@@ -132,6 +142,7 @@ class Ui(QtWidgets.QMainWindow):
         inference_pred_length = self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').value()
         inference_obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         sliding_window_frames  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').value()
+        sliding_window_frames_output  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').value()
 
         epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
@@ -146,6 +157,7 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue('inference_pred_length', inference_pred_length)
         self.settings.setValue('inference_obs_length', inference_obs_length)
         self.settings.setValue('sliding_window_frames', sliding_window_frames)
+        self.settings.setValue('sliding_window_frames_output', sliding_window_frames_output)
 
         self.settings.setValue('epochs', epochs)
         self.settings.setValue('pred_length', pred_length)
@@ -182,9 +194,14 @@ class Ui(QtWidgets.QMainWindow):
 
         if not self.udp_splitter_thread:
             self.udp_splitter_thread = start_udp_splitter(listener_ip, touch_designer_pc_ip)
-        self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').valueChanged.connect(client._listener[0].update_pred_length)
-        self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').valueChanged.connect(client._listener[0].update_obs_length)
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(client._listener[0].update_sliding_window_size)
+        self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').valueChanged.connect(
+            client._listener[0].update_pred_length)
+        self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').valueChanged.connect(
+            client._listener[0].update_obs_length)
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(
+            client._listener[0].update_sliding_window_size)
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(
+            client._listener[0].update_sliding_window_output_size)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.disconnect()
@@ -384,4 +401,4 @@ timer.start(25)
 timer2 = QTimer()
 timer2.timeout.connect(window.loop_slow)
 timer2.start(25)
-sys.exit(app.exec_())  # Start the
+sys.exit(app.exec_())
