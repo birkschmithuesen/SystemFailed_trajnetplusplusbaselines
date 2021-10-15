@@ -38,7 +38,6 @@ class Ui(QtWidgets.QMainWindow):
         self.settings = QSettings("General", "SystemFailed Trajectory Inference")
         self.load_settings()
 
-        self.plot_view_pharus = pg.PlotWidget()
         self.plot_view_ml = pg.PlotWidget()
 
         self.scatter_plot_item_pharus = pg.ScatterPlotItem(
@@ -47,9 +46,6 @@ class Ui(QtWidgets.QMainWindow):
             pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
         self.scatter_plot_item_ml = pg.ScatterPlotItem(
             pen=pg.mkPen(width=5, color='g'), symbol='o', size=1)
-        self.plot_view_pharus.addItem(self.scatter_plot_item_pharus)
-        self.plot_view_pharus.setXRange(0, PHARUS_FIELD_SIZE_X)
-        self.plot_view_pharus.setYRange(0, PHARUS_FIELD_SIZE_Y)
         self.plot_view_ml.setXRange(0, PHARUS_FIELD_SIZE_X)
         self.plot_view_ml.setYRange(0, PHARUS_FIELD_SIZE_Y)
         self.plot_view_ml.addItem(self.scatter_plot_item_ml)
@@ -58,7 +54,6 @@ class Ui(QtWidgets.QMainWindow):
         self.visualizer_tab_widget = self.findChild(
             QtWidgets.QTabWidget, 'visualizer')
         self.visualizer_tab_widget.addTab(self.plot_view_ml, "ml")
-        self.visualizer_tab_widget.addTab(self.plot_view_pharus, "pharus")
 
         self.pharus_data = {}
         self.pharus_obs_data = []
