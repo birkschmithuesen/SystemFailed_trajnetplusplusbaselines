@@ -342,7 +342,7 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
         batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
         save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
-        learning_rate = self.findChild(QtWidgets.QSpinBox, 'learning_rate').value()
+        learning_rate = self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').value()
         step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
 
         self.training_threads.append(start_training_thread(basefolder, str(epochs), str(pred_length), str(obs_length),
@@ -360,7 +360,7 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
         batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
         save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
-        learning_rate = self.findChild(QtWidgets.QSpinBox, 'learning_rate').value()
+        learning_rate = self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').value()
         step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
 
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
