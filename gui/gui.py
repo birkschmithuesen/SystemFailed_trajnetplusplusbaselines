@@ -107,6 +107,8 @@ class Ui(QtWidgets.QMainWindow):
 
     def load_settings(self):
         try:
+            self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').setValue(
+                int(self.settings.value('pharus_incoming_fps')))
             self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').setPlainText(
                 self.settings.value('pharus_listener_ip'))
             self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').setPlainText(
@@ -132,6 +134,7 @@ class Ui(QtWidgets.QMainWindow):
             pass
 
     def save_settings(self):
+        pharus_incoming_fps = self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').value()
         pharus_listener_ip = self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').toPlainText()
         touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
         inference_pred_length = self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').value()
@@ -147,6 +150,7 @@ class Ui(QtWidgets.QMainWindow):
         step_size_lr_scheduler = self.findChild(QtWidgets.QSpinBox, 'step_size_lr_scheduler').value()
         save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
 
+        self.settings.setValue('pharus_incoming_fps', pharus_incoming_fps)
         self.settings.setValue('pharus_listener_ip', pharus_listener_ip)
         self.settings.setValue('touch_designer_pc_ip', touch_designer_pc_ip)
         self.settings.setValue('inference_pred_length', inference_pred_length)
@@ -167,6 +171,7 @@ class Ui(QtWidgets.QMainWindow):
         if self.button.text() == "stop":
             return
         self.button.setText("stop")
+        pharus_incoming_fps =  self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').value()
         listener_ip = self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').toPlainText()
         touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').value()
@@ -179,7 +184,8 @@ class Ui(QtWidgets.QMainWindow):
                                                     fps_callback=self.fps_callback,
                                                     pharus_fps_callback=self.pharus_fps_callback,
                                                     pred_length=pred_length,
-                                                    obs_length=obs_length)
+                                                    obs_length=obs_length,
+                                                    fps=pharus_incoming_fps)
 
         client = client_and_threads[0]
         t1 = client_and_threads[1]
@@ -189,6 +195,8 @@ class Ui(QtWidgets.QMainWindow):
 
         if not self.udp_splitter_thread:
             self.udp_splitter_thread = start_udp_splitter(listener_ip, touch_designer_pc_ip)
+        self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').valueChanged.connect(
+            client._listener[0].update_pharus_fps)
         self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').valueChanged.connect(
             client._listener[0].update_pred_length)
         self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').valueChanged.connect(

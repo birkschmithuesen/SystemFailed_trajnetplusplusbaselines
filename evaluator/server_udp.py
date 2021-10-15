@@ -55,9 +55,13 @@ def resize_deques_dict(deques_dict, size):
     return deques_dict_copy
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None, pharus_sender_fps=60):
+def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None):
 
-    pharus_sender_fps = int(pharus_sender_fps / 2.5)
+    global pharus_sender_fps
+    pharus_sender_fps = int(args.fps / 2.5)
+
+    global prediction_deque
+    prediction_deque = deque(maxlen=25)
 
     # Handcrafted Baselines (if included)
     if args.kf:
@@ -125,8 +129,6 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             formatted_msg = "[{}]".format(msg[:-2])
             udp_socket.sendto(
                 bytes(formatted_msg, "utf-8"), (touch_designer_ip, UDP_PORT))
-
-        prediction_deque = deque(maxlen=25)
 
         def make_prediction(paths):
             scene_goal = []
@@ -249,6 +251,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.fps_callback = pharus_fps_callback
                 self.sliding_window_size = SLIDING_WINDOW_SIZE
                 self.update_obs_length_size = False
+                self.callbacks = []
 
             def put_cursor(self, cursor):
                 self.bundle.append(cursor)
@@ -290,10 +293,13 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.bundle = []
 
                 if self.fps_callback:
-                  self.fps_callback(fps, paths)
+                    self.fps_callback(fps, paths)
                 if self.update_obs_length_size:
                     self.finalize_update_obs_length()
                     self.update_obs_length_size = False
+
+                while(len(self.callbacks) > 0):
+                    self.callbacks.pop()()
 
             def average_path(self, session_id):
                 if not session_id in self.people_deques:
@@ -324,16 +330,29 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def update_sliding_window_size(self, size):
                 self.sliding_window_size = size
                 self.people_deques = resize_deques_dict(self.people_deques, size)
-                print("Updated sliding window size to {}".format(size))
+                print("Updated input sliding window size to {}".format(size))
 
             def update_sliding_window_output_size(self, size):
+                global prediction_deque
                 prediction_deque = deque(maxlen=size)
+                print("Updated output sliding window size to {}".format(size))
 
             def update_pred_length(self, pred_length):
                 args.pred_length = pred_length
+                print("Updated prediction length to {}".format(pred_length))
 
             def update_obs_length(self, obs_length):
                 self.update_obs_length_size = obs_length
+                print("Updated obs_length to {}".format(obs_length))
+
+            def update_pharus_fps(self, fps):
+                def update_callback():
+                    global pharus_sender_fps
+                    pharus_sender_fps = int(fps / 2.5)
+                    self.people = {}
+                    self.people_deques = {}
+                self.callbacks.append(update_callback)
+                print("Updated incoming pharus fps to {}".format(fps))
 
             def finalize_update_obs_length(self):
                 self.people = {}
@@ -384,6 +403,8 @@ def main(args, touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_ca
                         help='relative path to saved model')
     parser.add_argument('--obs_length', default=9, type=int,
                         help='observation length')
+    parser.add_argument('--fps', default=30, type=int,
+                        help='FPS of incoming frames')
     parser.add_argument('--pred_length', default=12, type=int,
                         help='prediction length')
     parser.add_argument('--write_only', action='store_true',
