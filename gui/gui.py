@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 from PyQt5 import QtWidgets, QtCore, QtGui, uic
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QSettings
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
@@ -34,6 +34,8 @@ class Ui(QtWidgets.QMainWindow):
         # Call the inherited classes __init__ method
         super(Ui, self).__init__()
         uic.loadUi('gui/gui.ui', self)  # Load the .ui file
+        self.settings = QSettings("General", "SystemFailed Trajectory Inference")
+        self.load_settings()
 
         self.plot_view_pharus = pg.PlotWidget()
         self.plot_view_ml = pg.PlotWidget()
@@ -107,6 +109,50 @@ class Ui(QtWidgets.QMainWindow):
 
         self.show()  # Show the GUI
 
+    def load_settings(self):
+        try:
+            self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').setPlainText(self.settings.value('pharus_listener_ip'))
+            self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').setPlainText(self.settings.value('touch_designer_pc_ip'))
+            self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').setValue(int(self.settings.value('inference_pred_length')))
+            self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').setValue(int(self.settings.value('sliding_window_frames')))
+
+            self.findChild(QtWidgets.QSpinBox, 'epochs').setValue(int(self.settings.value('epochs')))
+            self.findChild(QtWidgets.QSpinBox, 'pred_length').setValue(int(self.settings.value('pred_length')))
+            self.findChild(QtWidgets.QSpinBox, 'obs_length').setValue(int(self.settings.value('obs_length')))
+            self.findChild(QtWidgets.QSpinBox, 'batch_size').setValue(int(self.settings.value('batch_size')))
+            self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').setValue(float(self.settings.value('learning_rate')))
+            self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(int(self.settings.value('save_every_n_epochs')))
+        except:
+            pass
+
+    def save_settings(self):
+        pharus_listener_ip = self.findChild(QtWidgets.QPlainTextEdit, 'pharus_listener_ip').toPlainText()
+        touch_designer_pc_ip = self.findChild(QtWidgets.QPlainTextEdit, 'touch_designer_pc_ip').toPlainText()
+        inference_pred_length = self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').value()
+        inference_obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
+        sliding_window_frames  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').value()
+
+        epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
+        pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
+        obs_length = self.findChild(QtWidgets.QSpinBox, 'obs_length').value()
+        batch_size = self.findChild(QtWidgets.QSpinBox, 'batch_size').value()
+        learning_rate = self.findChild(QtWidgets.QDoubleSpinBox, 'learning_rate').value()
+        save_every_n_epochs = self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').value()
+
+        self.settings.setValue('pharus_listener_ip', pharus_listener_ip)
+        self.settings.setValue('touch_designer_pc_ip', touch_designer_pc_ip)
+        self.settings.setValue('inference_pred_length', inference_pred_length)
+        self.settings.setValue('inference_obs_length', inference_obs_length)
+        self.settings.setValue('sliding_window_frames', sliding_window_frames)
+
+        self.settings.setValue('epochs', epochs)
+        self.settings.setValue('pred_length', pred_length)
+        self.settings.setValue('obs_length', obs_length)
+        self.settings.setValue('batch_size', batch_size)
+        self.settings.setValue('learning_rate', learning_rate)
+        self.settings.setValue('obs_length', obs_length)
+        self.settings.setValue('save_every_n_epochs', save_every_n_epochs)
+
     def start_inference(self):
         if self.button.text() == "stop":
             return
@@ -156,6 +202,10 @@ class Ui(QtWidgets.QMainWindow):
         self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.disconnect()
         self.button.clicked.disconnect()
         self.button.clicked.connect(self.start_inference)
+
+    def closeEvent(self, event):
+        self.save_settings()
+        print("Close event received")
 
     def fps_callback(self, fps, obs_paths, paths):
         self.ml_fps_deque.append(fps)
@@ -274,7 +324,7 @@ class Ui(QtWidgets.QMainWindow):
             self.show_error(msg)
             return
         self.show_error("Starting conversion")
-        pharus_convert(self.pharus_data_path, "/DATA_BLOCK/")
+        pharus_convert(self.pharus_data_path, "DATA_BLOCK/")
         self.show_error("Conversion completed.")
 
     def start_training(self):
@@ -309,6 +359,7 @@ class Ui(QtWidgets.QMainWindow):
 # Create an instance of QtWidgets.QApplication
 app = QtWidgets.QApplication(sys.argv)
 window = Ui()  # Create an instance of our class
+window.show()
 
 timer = QTimer()
 timer.timeout.connect(window.loop)
@@ -316,4 +367,4 @@ timer.start(25)
 timer2 = QTimer()
 timer2.timeout.connect(window.loop_slow)
 timer2.start(25)
-app.exec_()  # Start the
+sys.exit(app.exec_())  # Start the
