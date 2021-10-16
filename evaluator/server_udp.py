@@ -338,7 +338,9 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 print("Updated output sliding window size to {}".format(size))
 
             def update_pred_length(self, pred_length):
-                args.pred_length = pred_length
+                def update_callback():
+                    args.pred_length = pred_length
+                self.callbacks.append(update_callback)
                 print("Updated prediction length to {}".format(pred_length))
 
             def update_obs_length(self, obs_length):

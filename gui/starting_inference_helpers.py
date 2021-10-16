@@ -12,10 +12,12 @@ def start_inference_server(model_path="OUTPUT_BLOCK/pharus_kreis_mit_stehenbleib
                            fps_callback=None,
                            pharus_fps_callback=None,
                            pred_length=12,
-                           obs_length=9):
+                           obs_length=9,
+                           fps=30):
 
     args = ["--output", model_path, "--gpu",
-            "True", "--obs_length", str(obs_length), "--pred_length", str(pred_length)]
+            "True", "--obs_length", str(obs_length), "--pred_length", str(pred_length),
+            "--fps", str(fps)]
 
     client_and_threads = server_udp.main(args, touch_designer_ip, fps_callback, pharus_fps_callback)
     return client_and_threads
