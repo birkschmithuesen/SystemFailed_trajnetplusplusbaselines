@@ -16,7 +16,7 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
 #### ML Software
 
 - ML software is here: `/home/ml/Documents/SystemFailed_trajnetplusplusbaselines`
-- start ML GUI with `python3.7 gui/gui.py` and to prevent networking and other trouble you can run `killall udp-splitter python3.7 && python3.7 gui/gui.py
+- start ML GUI with `python3.7 gui/gui.py` and to prevent networking and other trouble you can run `killall udp-splitter python3.7 && python3.7 gui/gui.py`
 
 ### GUI Usage
 #### Inference Tab
