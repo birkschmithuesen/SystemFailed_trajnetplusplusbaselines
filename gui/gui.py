@@ -11,7 +11,7 @@ import pyqtgraph as pg
 import pandas as pd
 
 from data_conversions_helpers import pharus_convert
-from starting_inference_helpers import start_inference_server, start_udp_splitter
+from starting_inference_helpers import start_inference_server
 from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid,\
     pharus_recording_is_valid,get_training_df_positions
 from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
@@ -101,7 +101,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self.threads = []
         self.training_threads = []
-        self.udp_splitter_thread = None
 
         self.show()  # Show the GUI
 
@@ -193,8 +192,6 @@ class Ui(QtWidgets.QMainWindow):
 
         self.threads.extend([(client, t1), t2])
 
-        if not self.udp_splitter_thread:
-            self.udp_splitter_thread = start_udp_splitter(listener_ip, touch_designer_pc_ip)
         self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').valueChanged.connect(
             client._listener[0].update_pharus_fps)
         self.findChild(QtWidgets.QSpinBox, 'inference_pred_length').valueChanged.connect(
