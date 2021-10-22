@@ -18,6 +18,7 @@ import trajnetbaselines
 
 QUEUE_MAX_LENGTH = 10
 UDP_PORT = 6666
+TUIO_HOST = 0.0.0.0
 TUIO_PORT = 3333
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
@@ -393,7 +394,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 return paths
 
-        client = TuioClient(("0.0.0.0", TUIO_PORT))
+        client = TuioClient((TUIO_HOST, TUIO_PORT))
         t1 = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
