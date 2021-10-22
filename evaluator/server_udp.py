@@ -23,6 +23,7 @@ PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
 SLIDING_WINDOW_SIZE = 30
 
+
 def average_prediction_path(ped_id, n, x, y, path_deque):
     prev_vals = []
     for path_dict in list(path_deque):
@@ -45,6 +46,7 @@ def cursor_to_row(timestamp, cursor):
                                               x=PHARUS_FIELD_SIZE_X *
                                               cursor.position[0],
                                               y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
+
 
 def resize_deques_dict(deques_dict, size):
     deques_dict_copy = {}
@@ -161,12 +163,13 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 # Write Primary
                 msg = ""
                 for i, _ in enumerate(prediction):
-                    x = prediction[i,0].item()
-                    y = prediction[i,1].item()
-                    avg_x, avg_y = average_prediction_path(ped_id, i, x, y, prediction_deque)
+                    x = prediction[i, 0].item()
+                    y = prediction[i, 1].item()
+                    avg_x, avg_y = average_prediction_path(
+                        ped_id, i, x, y, prediction_deque)
                     if not ped_id in prediction_paths_dict:
                         prediction_paths_dict[ped_id] = []
-                    prediction_paths_dict[ped_id].append((x,y))
+                    prediction_paths_dict[ped_id].append((x, y))
                     track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                           ped_id,
                                                           avg_x,
@@ -187,10 +190,11 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                         ped_id = ped_id_[n]
                         x = neigh[j, 0].item()
                         y = neigh[j, 1].item()
-                        x_avg, y_avg = average_prediction_path(ped_id, j, x, y, prediction_deque)
+                        x_avg, y_avg = average_prediction_path(
+                            ped_id, j, x, y, prediction_deque)
                         if not ped_id in prediction_paths_dict:
                             prediction_paths_dict[ped_id] = []
-                        prediction_paths_dict[ped_id].append((x,y))
+                        prediction_paths_dict[ped_id].append((x, y))
                         track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
                                                               ped_id,
                                                               x_avg,
@@ -259,7 +263,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def add_tuio_cursor(self, cursor: Cursor):
                 length = int(args.obs_length*pharus_sender_fps + 1)
                 self.people[cursor.session_id] = deque(maxlen=length)
-                self.people_deques[cursor.session_id] = deque(maxlen=self.sliding_window_size)
+                self.people_deques[cursor.session_id] = deque(
+                    maxlen=self.sliding_window_size)
                 self.put_cursor(cursor)
 
             def update_tuio_cursor(self, cursor: Cursor):
@@ -303,7 +308,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
             def average_path(self, session_id):
                 if not session_id in self.people_deques:
-                    print("Error session id {} not in people_deques: {}".format(session_id, str(self.people_deques)))
+                    print("Error session id {} not in people_deques: {}".format(
+                        session_id, str(self.people_deques)))
                     return
                 average_x = np.zeros(self.people[session_id].maxlen)
                 average_y = np.zeros(self.people[session_id].maxlen)
@@ -329,7 +335,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
             def update_sliding_window_size(self, size):
                 self.sliding_window_size = size
-                self.people_deques = resize_deques_dict(self.people_deques, size)
+                self.people_deques = resize_deques_dict(
+                    self.people_deques, size)
                 print("Updated input sliding window size to {}".format(size))
 
             def update_sliding_window_output_size(self, size):
@@ -386,7 +393,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 return paths
 
-        client = TuioClient(("localhost", TUIO_PORT))
+        client = TuioClient(("0.0.0.0", TUIO_PORT))
         t1 = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
