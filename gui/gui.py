@@ -200,7 +200,7 @@ class Ui(QtWidgets.QMainWindow):
             client._listener[0].update_obs_length)
         self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(
             client._listener[0].update_sliding_window_size)
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').valueChanged.connect(
             client._listener[0].update_sliding_window_output_size)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
@@ -220,6 +220,7 @@ class Ui(QtWidgets.QMainWindow):
 
         self.threads.clear()
         self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.disconnect()
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').valueChanged.disconnect()
         self.button.clicked.disconnect()
         self.button.clicked.connect(self.start_inference)
 
