@@ -205,7 +205,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                                                               y_avg,
                                                               m,
                                                               scene_id)
-                        if i < PREDICTION_START_OFFSET:
+                        if j < PREDICTION_START_OFFSET:
                             continue
                         prediction_paths.append(track)
                         msg += trajnetplusplustools.writers.trajnet(
