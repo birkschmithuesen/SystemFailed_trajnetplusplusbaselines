@@ -23,6 +23,7 @@ TUIO_PORT = 3333
 PHARUS_FIELD_SIZE_X = 16.4
 PHARUS_FIELD_SIZE_Y = 9.06
 SLIDING_WINDOW_SIZE = 30
+PREDICTION_START_OFFSET = 3
 
 
 def average_prediction_path(ped_id, n, x, y, path_deque):
@@ -177,6 +178,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                                                           avg_y,
                                                           m,
                                                           scene_id)
+                    if i < PREDICTION_START_OFFSET:
+                        continue
                     prediction_paths.append(track)
                     msg += trajnetplusplustools.writers.trajnet(
                         track) + ', '
@@ -202,9 +205,11 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                                                               y_avg,
                                                               m,
                                                               scene_id)
+                        if i < PREDICTION_START_OFFSET:
+                            continue
+                        prediction_paths.append(track)
                         msg += trajnetplusplustools.writers.trajnet(
                             track) + ', '
-                        prediction_paths.append(track)
                     send_to_touchdesigner(msg)
             prediction_deque.append(prediction_paths_dict)
             return prediction_paths
