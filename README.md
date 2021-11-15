@@ -56,7 +56,8 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     - when ready, there comes a PopUp
     - destination folder is: ``OUTPUT_BLOCK``
 
-
+### hard coded config
+- field size: evaluator/server_udp.py PHARUS_FIELD_SIZE
 
 ### Command line
 
