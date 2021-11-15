@@ -19,7 +19,7 @@ import trajnetbaselines
 QUEUE_MAX_LENGTH = 10
 UDP_PORT = 6666
 TUIO_HOST = "0.0.0.0"
-TUIO_PORT = 3333
+TUIO_PORT = 3000
 PHARUS_FIELD_SIZE_X = 9.61
 PHARUS_FIELD_SIZE_Y = 5.01
 SLIDING_WINDOW_SIZE = 30
@@ -45,9 +45,8 @@ def average_prediction_path(ped_id, n, x, y, path_deque):
 def cursor_to_row(timestamp, cursor):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
                                               pedestrian=cursor.session_id,
-                                              x=PHARUS_FIELD_SIZE_X *
-                                              cursor.position[0],
-                                              y=PHARUS_FIELD_SIZE_Y * cursor.position[1])
+                                              x=cursor.position[0],
+                                              y=cursor.position[1])
 
 
 def resize_deques_dict(deques_dict, size):
