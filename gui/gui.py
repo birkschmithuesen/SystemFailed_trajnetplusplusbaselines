@@ -175,7 +175,8 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
-        client_and_threads = start_inference_server(model_path=path,
+        try:
+            client_and_threads = start_inference_server(model_path=path,
                                                     pharus_receiver_ip=listener_ip,
                                                     touch_designer_ip=touch_designer_pc_ip,
                                                     fps_callback=self.fps_callback,
@@ -183,6 +184,11 @@ class Ui(QtWidgets.QMainWindow):
                                                     pred_length=pred_length,
                                                     obs_length=obs_length,
                                                     fps=pharus_incoming_fps)
+        except Exception:
+            self.button.setText("start")
+            self.show_error("Selected file is not a model.")
+            return
+
 
         client = client_and_threads[0]
         t1 = client_and_threads[1]
@@ -196,14 +202,19 @@ class Ui(QtWidgets.QMainWindow):
             client._listener[0].update_pred_length)
         self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').valueChanged.connect(
             client._listener[0].update_obs_length)
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.connect(
+        sliding_window_frames_spinbox = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames')
+        sliding_window_frames_spinbox.valueChanged.connect(
             client._listener[0].update_sliding_window_size)
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').valueChanged.connect(
+        sliding_window_frames_output_spinbox = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output')
+        sliding_window_frames_output_spinbox.valueChanged.connect(
             client._listener[0].update_sliding_window_output_size)
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.disconnect()
         self.button.clicked.connect(self.stop_inference_server)
+
+        sliding_window_frames_spinbox.valueChanged.emit(sliding_window_frames_spinbox.value())
+        sliding_window_frames_output_spinbox.valueChanged.emit(sliding_window_frames_output_spinbox.value())
 
     def stop_inference_server(self):
         if self.button.text() == "start":
