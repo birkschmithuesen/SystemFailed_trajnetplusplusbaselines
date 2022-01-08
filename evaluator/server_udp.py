@@ -20,10 +20,10 @@ QUEUE_MAX_LENGTH = 10
 UDP_PORT = 6666
 TUIO_HOST = "0.0.0.0"
 TUIO_PORT = 3000
-PHARUS_FIELD_SIZE_X = 9.61
-PHARUS_FIELD_SIZE_Y = 5.01
-SLIDING_WINDOW_SIZE = 30
-PREDICTION_START_OFFSET = 3
+PHARUS_FIELD_SIZE_X = 17
+PHARUS_FIELD_SIZE_Y = 9.3
+INPUT_SLIDING_WINDOW_SIZE = 1
+PREDICTION_START_OFFSET = 0
 
 
 def average_prediction_path(ped_id, n, x, y, path_deque):
@@ -258,7 +258,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.new_frame_time = 0
                 self.ml_fps = 0
                 self.fps_callback = pharus_fps_callback
-                self.sliding_window_size = SLIDING_WINDOW_SIZE
+                self.sliding_window_size = INPUT_SLIDING_WINDOW_SIZE
                 self.update_obs_length_size = False
                 self.callbacks = []
 
