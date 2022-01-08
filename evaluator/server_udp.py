@@ -16,7 +16,7 @@ from pythontuio import TuioListener
 import trajnetplusplustools
 import trajnetbaselines
 
-QUEUE_MAX_LENGTH = 10
+QUEUE_MAX_LENGTH = 1
 UDP_PORT = 6666
 TUIO_HOST = "0.0.0.0"
 TUIO_PORT = 3000
@@ -214,6 +214,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             return prediction_paths
 
         q = Queue()
+        fps_deque = deque(maxlen=25)
 
         class PredictionThread(threading.Thread):
             def __init__(self, name="ML Prediction Thread"):
@@ -223,7 +224,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
             def run(self):
                 while not self._stop_event.is_set():
                     try:
-                        paths = q.get(timeout=1)
+                        paths = q.get_nowait()
                     except Empty:
                         continue
                     new_frame_time = time.time()
@@ -234,7 +235,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                         ml_fps_callback(fps, paths, pred_paths)
                     while q.qsize() > QUEUE_MAX_LENGTH:
                         try:
-                            paths = q.get(timeout=1)
+                            paths = q.get_nowait()
                         except Empty:
                             continue
                     sys.stdout.write("ML FPS: %d  --- Queue Length: %d \r"
@@ -266,7 +267,8 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
                 self.bundle.append(cursor)
 
             def add_tuio_cursor(self, cursor: Cursor):
-                length = int(args.obs_length*pharus_sender_fps + 1)
+                global pharus_sender_fps
+                length = int(args.obs_length*pharus_sender_fps)
                 self.people[cursor.session_id] = deque(maxlen=length)
                 self.people_deques[cursor.session_id] = deque(
                     maxlen=self.sliding_window_size)

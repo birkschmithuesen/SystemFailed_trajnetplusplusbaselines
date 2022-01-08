@@ -18,8 +18,6 @@ from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
 
-PRED_LENGTH = 4
-
 cmap = plt.cm.get_cmap('rainbow')
 
 def get_rgb_val(total_n, index):
