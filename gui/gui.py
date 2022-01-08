@@ -214,6 +214,7 @@ class Ui(QtWidgets.QMainWindow):
         for thread in self.threads:
             if type(thread) is tuple:
                 thread[0].shutdown()
+                thread[0].server_close()
                 thread[1].join()
             else:
                 thread.join()
