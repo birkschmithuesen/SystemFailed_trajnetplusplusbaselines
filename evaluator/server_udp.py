@@ -25,7 +25,7 @@ INPUT_SLIDING_WINDOW_SIZE = 1
 PREDICTION_START_OFFSET = 0
 
 
-def average_prediction_path(ped_id, n, x, y, path_deque, pred_length):
+def average_prediction_path(ped_id, n, x, y, path_deque, pred_length, enable_weights):
     prev_vals = []
     for path_dict in list(path_deque):
         if ped_id in path_dict:
@@ -36,13 +36,18 @@ def average_prediction_path(ped_id, n, x, y, path_deque, pred_length):
     xy_vals = [pred_list[n] for pred_list in prev_vals]
     x_vals = [coord[0] for coord in xy_vals]
     y_vals = [coord[1] for coord in xy_vals]
-    len_xvals = len(x_vals)
-    if len_xvals == 0:
-        len_xvals = 1
-    weighting_time = np.arange(0.0, 0.9999, 1.0/len_xvals)
-    weighting_n = math.exp(np.linspace(-4.0,1.0,pred_length)[n])
-    x_avg = (sum(x_vals*weighting_time)*weighting_n + x) / (sum(weighting_time)*weighting_n + 1)
-    y_avg = (sum(y_vals*weighting_time)*weighting_n + y) / (sum(weighting_time)*weighting_n + 1)
+
+    if enable_weights:
+        len_xvals = len(x_vals)
+        if len_xvals == 0:
+            len_xvals = 1
+        weighting_time = np.arange(0.0, 0.9999, 1.0/len_xvals)
+        weighting_n = math.exp(np.linspace(-4.0,1.0,pred_length)[n])
+        x_avg = (sum(x_vals*weighting_time)*weighting_n + x) / (sum(weighting_time)*weighting_n + 1)
+        y_avg = (sum(y_vals*weighting_time)*weighting_n + y) / (sum(weighting_time)*weighting_n + 1)
+    else:
+        x_avg = (sum(x_vals) + x) / (len(x_vals) + 1)
+        y_avg = (sum(y_vals) + y) / (len(y_vals) + 1)
     return (x_avg, y_avg)
 
 
@@ -137,7 +142,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
             udp_socket.sendto(
                 bytes(formatted_msg, "utf-8"), (touch_designer_ip, UDP_PORT))
 
-        def make_prediction(paths):
+        def make_prediction(paths, enable_weights):
             scene_goal = []
             for _, _ in enumerate(paths):
                 scene_goal.append([.0, .0])
@@ -171,7 +176,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                     x = prediction[i, 0].item()
                     y = prediction[i, 1].item()
                     avg_x, avg_y = average_prediction_path(
-                        ped_id, i, x, y, prediction_deque, args.pred_length)
+                        ped_id, i, x, y, prediction_deque, args.pred_length, enable_weights)
                     if not ped_id in prediction_paths_dict:
                         prediction_paths_dict[ped_id] = []
                     prediction_paths_dict[ped_id].append((x, y))
@@ -206,7 +211,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                         x = neigh[j, 0].item()
                         y = neigh[j, 1].item()
                         x_avg, y_avg = average_prediction_path(
-                            ped_id, j, x, y, prediction_deque, args.pred_length)
+                            ped_id, j, x, y, prediction_deque, args.pred_length, enable_weights)
                         if not ped_id in prediction_paths_dict:
                             prediction_paths_dict[ped_id] = []
                         prediction_paths_dict[ped_id].append((x, y))
@@ -244,11 +249,11 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
             def run(self):
                 while not self._stop_event.is_set():
                     try:
-                        paths = q.get_nowait()
+                        paths, weights_enabled = q.get_nowait()
                     except Empty:
                         continue
                     new_frame_time = time.time()
-                    pred_paths = make_prediction(paths)
+                    pred_paths = make_prediction(paths, weights_enabled)
                     fps = 1/(time.time() - new_frame_time)
                     fps = int(fps)
                     if ml_fps_callback:
@@ -280,6 +285,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                 self.ml_fps = 0
                 self.fps_callback = pharus_fps_callback
                 self.sliding_window_size = INPUT_SLIDING_WINDOW_SIZE
+                self.enable_weights = False
                 self.update_obs_length_size = False
                 self.callbacks = []
 
@@ -320,7 +326,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                         self.people_deques[session_id].append(list(dq))
                 paths = self.get_paths()
                 if paths:
-                    q.put(paths)
+                    q.put((paths, self.enable_weights))
 
                 self.bundle = []
 
@@ -380,6 +386,10 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
             def update_obs_length(self, obs_length):
                 self.update_obs_length_size = obs_length
                 print("Updated obs_length to {}".format(obs_length))
+
+            def update_enable_weights(self, enabled):
+                self.enable_weights = enabled
+                print("Updated enable_weights to {}".format(enabled))
 
             def update_pharus_fps(self, fps):
                 def update_callback():

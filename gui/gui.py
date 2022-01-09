@@ -137,6 +137,8 @@ class Ui(QtWidgets.QMainWindow):
                 float(self.settings.value('field_size_x')))
             self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').setValue(
                 float(self.settings.value('field_size_y')))
+            self.findChild(QtWidgets.QCheckBox, 'enable_output_weights').setCheckState(
+                int(self.settings.value('enable_output_weights')))
 
             self.findChild(QtWidgets.QSpinBox, 'epochs').setValue(int(self.settings.value('epochs')))
             self.findChild(QtWidgets.QSpinBox, 'pred_length').setValue(int(self.settings.value('pred_length')))
@@ -148,8 +150,8 @@ class Ui(QtWidgets.QMainWindow):
                 int(self.settings.value('step_size_lr_scheduler')))
             self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(
                 int(self.settings.value('save_every_n_epochs')))
-        except:
-            print("Couldn't load settings from a previous session")
+        except Exception as e:
+            print("Couldn't load settings from a previous session:\n{}".format(e))
             pass
 
     def save_settings(self):
@@ -162,6 +164,7 @@ class Ui(QtWidgets.QMainWindow):
         sliding_window_frames_output  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').value()
         field_size_x = self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_x').value()
         field_size_y = self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').value()
+        enable_output_weights = int(self.findChild(QtWidgets.QCheckBox, 'enable_output_weights').checkState())
 
         epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
@@ -180,6 +183,7 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue('sliding_window_frames_output', sliding_window_frames_output)
         self.settings.setValue('field_size_x', field_size_x)
         self.settings.setValue('field_size_y', field_size_y)
+        self.settings.setValue('enable_output_weights', enable_output_weights)
 
         self.settings.setValue('epochs', epochs)
         self.settings.setValue('pred_length', pred_length)
@@ -247,6 +251,10 @@ class Ui(QtWidgets.QMainWindow):
         sliding_window_frames_output_spinbox = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output')
         sliding_window_frames_output_spinbox.valueChanged.connect(
             client._listener[0].update_sliding_window_output_size)
+        enable_output_weights = self.findChild(QtWidgets.QCheckBox, 'enable_output_weights')
+        enable_output_weights.stateChanged.connect(
+            client._listener[0].update_enable_weights
+        )
         self.ml_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.pharus_fps.setStyleSheet("background-color: rgb(78, 154, 6);")
         self.button.clicked.disconnect()
@@ -254,6 +262,7 @@ class Ui(QtWidgets.QMainWindow):
 
         sliding_window_frames_spinbox.valueChanged.emit(sliding_window_frames_spinbox.value())
         sliding_window_frames_output_spinbox.valueChanged.emit(sliding_window_frames_output_spinbox.value())
+        enable_output_weights.stateChanged.emit(enable_output_weights.checkState())
 
     def stop_inference_server(self):
         if self.button.text() == "start":

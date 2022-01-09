@@ -139,14 +139,14 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="0">
+              <item row="4" column="0">
                <widget class="QLabel" name="label_3">
                 <property name="text">
                  <string>Pharus Listener IP</string>
                 </property>
                </widget>
               </item>
-              <item row="3" column="1">
+              <item row="4" column="1">
                <widget class="QPlainTextEdit" name="pharus_listener_ip">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Fixed" vsizetype="MinimumExpanding">
@@ -165,14 +165,14 @@
                 </property>
                </widget>
               </item>
-              <item row="4" column="0">
+              <item row="5" column="0">
                <widget class="QLabel" name="label_4">
                 <property name="text">
                  <string>Touch Designer PC IP</string>
                 </property>
                </widget>
               </item>
-              <item row="4" column="1">
+              <item row="5" column="1">
                <widget class="QPlainTextEdit" name="touch_designer_pc_ip">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
@@ -191,14 +191,14 @@
                 </property>
                </widget>
               </item>
-              <item row="5" column="0">
+              <item row="6" column="0">
                <widget class="QLabel" name="label_7">
                 <property name="text">
                  <string>observation length</string>
                 </property>
                </widget>
               </item>
-              <item row="5" column="1">
+              <item row="6" column="1">
                <widget class="QSpinBox" name="inference_obs_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -211,14 +211,14 @@
                 </property>
                </widget>
               </item>
-              <item row="6" column="0">
+              <item row="7" column="0">
                <widget class="QLabel" name="label_6">
                 <property name="text">
                  <string>prediction length</string>
                 </property>
                </widget>
               </item>
-              <item row="6" column="1">
+              <item row="7" column="1">
                <widget class="QSpinBox" name="inference_pred_length">
                 <property name="sizePolicy">
                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -231,14 +231,14 @@
                 </property>
                </widget>
               </item>
-              <item row="7" column="0">
+              <item row="8" column="0">
                <widget class="QLabel" name="label_8">
                 <property name="text">
                  <string>field size x, y (meter)</string>
                 </property>
                </widget>
               </item>
-              <item row="7" column="1">
+              <item row="8" column="1">
                <layout class="QHBoxLayout" name="horizontalLayout">
                 <property name="sizeConstraint">
                  <enum>QLayout::SetFixedSize</enum>
@@ -303,6 +303,23 @@
                 </property>
                 <property name="value">
                  <number>30</number>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="label_14">
+                <property name="text">
+                 <string>weighted sliding window</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QCheckBox" name="enable_output_weights">
+                <property name="text">
+                 <string>enable</string>
+                </property>
+                <property name="tristate">
+                 <bool>false</bool>
                 </property>
                </widget>
               </item>
