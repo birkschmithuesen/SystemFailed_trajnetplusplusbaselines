@@ -169,17 +169,25 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                     if not ped_id in prediction_paths_dict:
                         prediction_paths_dict[ped_id] = []
                     prediction_paths_dict[ped_id].append((x, y))
-                    track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
+                    last_pharus_x = paths[0][-1].x
+                    last_pharus_y = paths[0][-1].y
+                    track_relative = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
                                                           ped_id,
-                                                          avg_x,
-                                                          avg_y,
+                                                          avg_x-last_pharus_x,
+                                                          avg_y-last_pharus_y,
                                                           m,
                                                           scene_id)
+                    track = trajnetplusplustools.TrackRow(first_frame + i * frame_diff,
+                                                                   ped_id,
+                                                                   avg_x,
+                                                                   avg_y,
+                                                                   m,
+                                                                   scene_id)
                     if i < PREDICTION_START_OFFSET:
                         continue
                     prediction_paths.append(track)
                     msg += trajnetplusplustools.writers.trajnet(
-                        track) + ', '
+                        track_relative) + ', '
             send_to_touchdesigner(msg)
 
             # Write Neighbours (if non-empty)
@@ -196,6 +204,14 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                         if not ped_id in prediction_paths_dict:
                             prediction_paths_dict[ped_id] = []
                         prediction_paths_dict[ped_id].append((x, y))
+                        last_pharus_x = paths[n+1][-1].x
+                        last_pharus_y = paths[n+1][-1].y
+                        track_relative = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
+                                                              ped_id,
+                                                              x_avg-last_pharus_x,
+                                                              y_avg-last_pharus_y,
+                                                              m,
+                                                              scene_id)
                         track = trajnetplusplustools.TrackRow(first_frame + j * frame_diff,
                                                               ped_id,
                                                               x_avg,
@@ -206,7 +222,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                             continue
                         prediction_paths.append(track)
                         msg += trajnetplusplustools.writers.trajnet(
-                            track) + ', '
+                            track_relative) + ', '
                     send_to_touchdesigner(msg)
             prediction_deque.append(prediction_paths_dict)
             return prediction_paths
