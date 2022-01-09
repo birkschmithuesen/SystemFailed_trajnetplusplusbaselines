@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui, uic
 from PyQt5.QtCore import QTimer, QSettings
 from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
+import yappi
 
 import pandas as pd
 
@@ -16,6 +17,7 @@ from starting_training_helpers import start_training_thread, get_training_data, 
     pharus_recording_is_valid,get_training_df_positions
 
 FPS_AVERAGING_WINDOW = 10
+PROFILING_ENABLED = False
 
 cmap = plt.cm.get_cmap('rainbow')
 
@@ -59,6 +61,8 @@ class Ui(QtWidgets.QMainWindow):
 
         # show the GUI
         self.show()
+        if PROFILING_ENABLED:
+            yappi.start()
 
     def init_inference_visualization(self):
         self.plot_view_ml = pg.PlotWidget()
@@ -272,9 +276,17 @@ class Ui(QtWidgets.QMainWindow):
         self.threads.clear()
 
     def closeEvent(self, event):
+        yappi.stop()
         if self.threads:
             self.stop_inference_threads()
         self.save_settings()
+        if PROFILING_ENABLED:
+            threads = yappi.get_thread_stats()
+            for thread in threads:
+                print(
+                    "Function stats for (%s) (%d)" % (thread.name, thread.id)
+                )  # it is the Thread.__class__.__name__
+                yappi.get_func_stats(ctx_id=thread.id).sort("ttot", "desc").print_all()
         print("Close event received")
 
     def fps_callback(self, fps, obs_paths, paths):
