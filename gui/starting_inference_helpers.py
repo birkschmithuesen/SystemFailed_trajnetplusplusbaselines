@@ -19,7 +19,7 @@ def start_inference_server(model_path="OUTPUT_BLOCK/pharus_kreis_mit_stehenbleib
             "True", "--obs_length", str(obs_length), "--pred_length", str(pred_length),
             "--fps", str(fps)]
 
-    client_and_threads = server_udp.main(args, touch_designer_ip, fps_callback, pharus_fps_callback)
+    client_and_threads = server_udp.main(args, pharus_receiver_ip, touch_designer_ip, fps_callback, pharus_fps_callback)
     return client_and_threads
 
 if __name__ == "__main__":

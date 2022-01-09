@@ -58,7 +58,7 @@ def resize_deques_dict(deques_dict, size):
     return deques_dict_copy
 
 
-def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None):
+def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="", ml_fps_callback=None, pharus_fps_callback=None):
 
     global pharus_sender_fps
     pharus_sender_fps = int(args.fps / 2.5)
@@ -400,7 +400,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
 
                 return paths
 
-        client = TuioClient((TUIO_HOST, TUIO_PORT))
+        client = TuioClient((pharus_receiver_ip, TUIO_PORT))
         t1 = Thread(target=client.start)
         listener = MyListener()
         client.add_listener(listener)
@@ -412,7 +412,7 @@ def serve_forever(args=None, touch_designer_ip="", ml_fps_callback=None, pharus_
         return [client, t1, t2]
 
 
-def main(args, touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_callback=None):
+def main(args, pharus_receiver_ip="127.0.0.1", touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_callback=None):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', nargs='+',
@@ -450,7 +450,7 @@ def main(args, touch_designer_ip="192.168.0.2", fps_callback=None, pharus_fps_ca
     if (not args.sf) and (not args.orca) and (not args.kf) and (not args.cv):
         assert len(args.output), 'No output file is provided'
 
-    return serve_forever(args, touch_designer_ip, fps_callback, pharus_fps_callback)
+    return serve_forever(args, pharus_receiver_ip, touch_designer_ip, fps_callback, pharus_fps_callback)
 
 
 if __name__ == '__main__':
