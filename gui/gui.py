@@ -14,7 +14,6 @@ from data_conversions_helpers import pharus_convert
 from starting_inference_helpers import start_inference_server
 from starting_training_helpers import start_training_thread, get_training_data, training_folder_is_valid,\
     pharus_recording_is_valid,get_training_df_positions
-from evaluator.server_udp import PHARUS_FIELD_SIZE_X, PHARUS_FIELD_SIZE_Y
 
 FPS_AVERAGING_WINDOW = 10
 
@@ -33,9 +32,35 @@ class Ui(QtWidgets.QMainWindow):
         # Call the inherited classes __init__ method
         super(Ui, self).__init__()
         uic.loadUi('gui/gui.ui', self)  # Load the .ui file
+
+        #load field settings from previous session
         self.settings = QSettings("General", "SystemFailed Trajectory Inference")
         self.load_settings()
 
+        # inference tab
+        self.init_inference_visualization()
+
+        self.pharus_data = {}
+        self.pharus_obs_data = []
+        self.ml_data = []
+
+        self.init_inference_fields_and_buttons()
+
+        # training tab
+        self.init_training_visualization()
+        self.init_training_fields_and_buttons()
+
+        self.init_field_sizes()
+
+        # variables used for non UI functionality
+        self.training_data_path = ""
+        self.threads = []
+        self.training_threads = []
+
+        # show the GUI
+        self.show()
+
+    def init_inference_visualization(self):
         self.plot_view_ml = pg.PlotWidget()
 
         self.scatter_plot_item_pharus = pg.ScatterPlotItem(
@@ -44,8 +69,7 @@ class Ui(QtWidgets.QMainWindow):
             pen=pg.mkPen(width=5, color='r'), symbol='o', size=1)
         self.scatter_plot_item_ml = pg.ScatterPlotItem(
             pen=pg.mkPen(width=5, color='g'), symbol='o', size=1)
-        self.plot_view_ml.setXRange(0, PHARUS_FIELD_SIZE_X)
-        self.plot_view_ml.setYRange(0, PHARUS_FIELD_SIZE_Y)
+
         self.plot_view_ml.addItem(self.scatter_plot_item_ml)
         self.plot_view_ml.addItem(self.scatter_plot_item_pharus_obs)
 
@@ -53,10 +77,9 @@ class Ui(QtWidgets.QMainWindow):
             QtWidgets.QTabWidget, 'visualizer')
         self.visualizer_tab_widget.addTab(self.plot_view_ml, "ml")
 
-        self.pharus_data = {}
-        self.pharus_obs_data = []
-        self.ml_data = []
-
+    def init_inference_fields_and_buttons(self):
+        self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_x').valueChanged.connect(self.change_field_size_x)
+        self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').valueChanged.connect(self.change_field_size_y)
         self.button = self.findChild(QtWidgets.QPushButton, 'start_button')
         self.ml_fps = self.findChild(QtWidgets.QLCDNumber, 'ml_fps')
         self.pharus_fps = self.findChild(QtWidgets.QLCDNumber, 'pharus_fps')
@@ -65,16 +88,15 @@ class Ui(QtWidgets.QMainWindow):
         self.pharus_fps_deque = deque(maxlen=FPS_AVERAGING_WINDOW)
         self.ml_fps_deque = deque(maxlen=FPS_AVERAGING_WINDOW)
 
-        # training tab
+    def init_training_visualization(self):
         self.plot_view_training = pg.PlotWidget()
-        self.plot_view_training.setXRange(0, PHARUS_FIELD_SIZE_X)
-        self.plot_view_training.setYRange(0, PHARUS_FIELD_SIZE_Y)
         self.plot_items_training = []
 
         self.visualizer_training_tab_widget = self.findChild(
             QtWidgets.QTabWidget, 'training_visualizer')
         self.visualizer_training_tab_widget.addTab(self.plot_view_training, "training")
 
+    def init_training_fields_and_buttons(self):
         self.training_data_select_button = self.findChild(QtWidgets.QPushButton, 'training_data_select_button')
         self.training_data_select_button.clicked.connect(self.select_training_data)
         self.training_data_select_label = self.findChild(QtWidgets.QLabel, 'training_data_select_label')
@@ -93,15 +115,6 @@ class Ui(QtWidgets.QMainWindow):
         self.training_start_button = self.findChild(QtWidgets.QPushButton, 'continue_training_button')
         self.training_start_button.clicked.connect(self.continue_training)
 
-        # variables used for non UI functionality
-        self.training_data_path = ""
-
-
-        self.threads = []
-        self.training_threads = []
-
-        self.show()  # Show the GUI
-
     def load_settings(self):
         try:
             self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').setValue(
@@ -116,6 +129,10 @@ class Ui(QtWidgets.QMainWindow):
                 int(self.settings.value('sliding_window_frames')))
             self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').setValue(
                 int(self.settings.value('sliding_window_frames_output')))
+            self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_x').setValue(
+                float(self.settings.value('field_size_x')))
+            self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').setValue(
+                float(self.settings.value('field_size_y')))
 
             self.findChild(QtWidgets.QSpinBox, 'epochs').setValue(int(self.settings.value('epochs')))
             self.findChild(QtWidgets.QSpinBox, 'pred_length').setValue(int(self.settings.value('pred_length')))
@@ -128,6 +145,7 @@ class Ui(QtWidgets.QMainWindow):
             self.findChild(QtWidgets.QSpinBox, 'save_every_n_epochs').setValue(
                 int(self.settings.value('save_every_n_epochs')))
         except:
+            print("Couldn't load settings from a previous session")
             pass
 
     def save_settings(self):
@@ -138,6 +156,8 @@ class Ui(QtWidgets.QMainWindow):
         inference_obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         sliding_window_frames  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').value()
         sliding_window_frames_output  = self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').value()
+        field_size_x = self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_x').value()
+        field_size_y = self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').value()
 
         epochs = self.findChild(QtWidgets.QSpinBox, 'epochs').value()
         pred_length = self.findChild(QtWidgets.QSpinBox, 'pred_length').value()
@@ -154,6 +174,8 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue('inference_obs_length', inference_obs_length)
         self.settings.setValue('sliding_window_frames', sliding_window_frames)
         self.settings.setValue('sliding_window_frames_output', sliding_window_frames_output)
+        self.settings.setValue('field_size_x', field_size_x)
+        self.settings.setValue('field_size_y', field_size_y)
 
         self.settings.setValue('epochs', epochs)
         self.settings.setValue('pred_length', pred_length)
@@ -163,6 +185,19 @@ class Ui(QtWidgets.QMainWindow):
         self.settings.setValue('step_size_lr_scheduler', step_size_lr_scheduler)
         self.settings.setValue('obs_length', obs_length)
         self.settings.setValue('save_every_n_epochs', save_every_n_epochs)
+
+    def init_field_sizes(self):
+        """Has to be called after init_inference_visualization() and init_inference_fields_and_buttons()."""
+        self.change_field_size_x(self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_x').value())
+        self.change_field_size_y(self.findChild(QtWidgets.QDoubleSpinBox, 'field_size_y').value())
+
+    def change_field_size_x(self, x):
+        self.plot_view_ml.setXRange(0, x)
+        self.plot_view_training.setXRange(0, x)
+
+    def change_field_size_y(self, y):
+        self.plot_view_ml.setYRange(0, y)
+        self.plot_view_training.setYRange(0, y)
 
     def start_inference(self):
         if self.button.text() == "stop":
@@ -220,6 +255,13 @@ class Ui(QtWidgets.QMainWindow):
         if self.button.text() == "start":
             return
         self.button.setText("start")
+        self.stop_inference_threads()
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.disconnect()
+        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').valueChanged.disconnect()
+        self.button.clicked.disconnect()
+        self.button.clicked.connect(self.start_inference)
+
+    def stop_inference_threads(self):
         for thread in self.threads:
             if type(thread) is tuple:
                 thread[0].shutdown()
@@ -227,14 +269,11 @@ class Ui(QtWidgets.QMainWindow):
                 thread[1].join()
             else:
                 thread.join()
-
         self.threads.clear()
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames').valueChanged.disconnect()
-        self.findChild(QtWidgets.QSpinBox, 'sliding_window_frames_output').valueChanged.disconnect()
-        self.button.clicked.disconnect()
-        self.button.clicked.connect(self.start_inference)
 
     def closeEvent(self, event):
+        if self.threads:
+            self.stop_inference_threads()
         self.save_settings()
         print("Close event received")
 
