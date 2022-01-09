@@ -3,6 +3,7 @@ import socket
 import sys
 import threading
 import time
+import math
 from queue import Queue, Empty
 from collections import deque
 from threading import Thread
@@ -24,7 +25,7 @@ INPUT_SLIDING_WINDOW_SIZE = 1
 PREDICTION_START_OFFSET = 0
 
 
-def average_prediction_path(ped_id, n, x, y, path_deque):
+def average_prediction_path(ped_id, n, x, y, path_deque, pred_length):
     prev_vals = []
     for path_dict in list(path_deque):
         if ped_id in path_dict:
@@ -35,8 +36,13 @@ def average_prediction_path(ped_id, n, x, y, path_deque):
     xy_vals = [pred_list[n] for pred_list in prev_vals]
     x_vals = [coord[0] for coord in xy_vals]
     y_vals = [coord[1] for coord in xy_vals]
-    x_avg = (sum(x_vals) + x) / (len(x_vals) + 1)
-    y_avg = (sum(y_vals) + y) / (len(y_vals) + 1)
+    len_xvals = len(x_vals)
+    if len_xvals == 0:
+        len_xvals = 1
+    weighting_time = np.arange(0.0, 0.9999, 1.0/len_xvals)
+    weighting_n = math.exp(np.linspace(-4.0,1.0,pred_length)[n])
+    x_avg = (sum(x_vals*weighting_time)*weighting_n + x) / (sum(weighting_time)*weighting_n + 1)
+    y_avg = (sum(y_vals*weighting_time)*weighting_n + y) / (sum(weighting_time)*weighting_n + 1)
     return (x_avg, y_avg)
 
 
@@ -165,7 +171,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                     x = prediction[i, 0].item()
                     y = prediction[i, 1].item()
                     avg_x, avg_y = average_prediction_path(
-                        ped_id, i, x, y, prediction_deque)
+                        ped_id, i, x, y, prediction_deque, args.pred_length)
                     if not ped_id in prediction_paths_dict:
                         prediction_paths_dict[ped_id] = []
                     prediction_paths_dict[ped_id].append((x, y))
@@ -200,7 +206,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                         x = neigh[j, 0].item()
                         y = neigh[j, 1].item()
                         x_avg, y_avg = average_prediction_path(
-                            ped_id, j, x, y, prediction_deque)
+                            ped_id, j, x, y, prediction_deque, args.pred_length)
                         if not ped_id in prediction_paths_dict:
                             prediction_paths_dict[ped_id] = []
                         prediction_paths_dict[ped_id].append((x, y))
