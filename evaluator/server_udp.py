@@ -51,11 +51,11 @@ def average_prediction_path(ped_id, n, x, y, path_deque, pred_length, enable_wei
     return (x_avg, y_avg)
 
 
-def cursor_to_row(timestamp, cursor):
+def cursor_to_row(timestamp, pos, id):
     return trajnetplusplustools.data.TrackRow(frame=int(timestamp),
-                                              pedestrian=cursor.session_id,
-                                              x=cursor.position[0],
-                                              y=cursor.position[1])
+                                              pedestrian=id,
+                                              x=pos[0],
+                                              y=pos[1])
 
 
 def resize_deques_dict(deques_dict, size):
@@ -344,11 +344,12 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                     print("Error session id {} not in people_deques: {}".format(
                         session_id, str(self.people_deques)))
                     return
-                average_x = np.zeros(self.people[session_id].maxlen)
-                average_y = np.zeros(self.people[session_id].maxlen)
+                average_x = np.zeros(args.obs_length)
+                average_y = np.zeros(args.obs_length)
+                #start = time.time()
                 for dq_list in self.people_deques[session_id]:
-                    x_pos_list = [tup[1].position[0] for tup in dq_list]
-                    y_pos_list = [tup[1].position[1] for tup in dq_list]
+                    x_pos_list = [tup[1].position[0] for tup in dq_list[::pharus_sender_fps]]
+                    y_pos_list = [tup[1].position[1] for tup in dq_list[::pharus_sender_fps]]
                     x_pos_list = np.array(x_pos_list)
                     y_pos_list = np.array(y_pos_list)
                     average_x += x_pos_list
@@ -356,14 +357,13 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                 buffer_len = len(self.people_deques[session_id])
                 average_x /= buffer_len
                 average_y /= buffer_len
-
                 cursors = []
-                zipped_pos = zip(average_x, average_y)
-                for (timestamp, cursor), pos in zip(list(self.people[session_id]), zipped_pos):
-                    cursor_copy = Cursor(session_id)
-                    cursor_copy.position = pos
-                    cursors.append((timestamp, cursor))
-
+                cursor_list = list(self.people[session_id])[::pharus_sender_fps]
+                for i in range(len(cursor_list)):
+                    timestamp = cursor_list[i][0]
+                    cursor = cursor_list[i][1]
+                    pos = (average_x[i], average_y[i])
+                    cursors.append((timestamp, pos, cursor.session_id))
                 return cursors
 
             def update_sliding_window_size(self, size):
@@ -411,7 +411,7 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
                 for session_id, dq in self.people.items():
                     avg_dq_list = self.average_path(session_id)
                     if len(dq) == dq.maxlen:
-                        for cursor in avg_dq_list[::pharus_sender_fps]:
+                        for cursor in avg_dq_list:
                             cursors.append(cursor)
 
                 if len(cursors) == 0:
@@ -419,13 +419,13 @@ def serve_forever(args=None, pharus_receiver_ip="127.0.0.1", touch_designer_ip="
 
                 person_to_index = {}
                 counter = 0
-                for timestamp, cursor in cursors:
-                    row = cursor_to_row(timestamp, cursor)
-                    if not cursor.session_id in person_to_index:
+                for timestamp, pos, id in cursors:
+                    row = cursor_to_row(timestamp, pos, id)
+                    if not id in person_to_index:
                         paths.append([])
-                        person_to_index[cursor.session_id] = counter
+                        person_to_index[id] = counter
                         counter += 1
-                    index = person_to_index[cursor.session_id]
+                    index = person_to_index[id]
                     paths[index].append(row)
 
                 return paths
