@@ -18,8 +18,13 @@ from starting_training_helpers import start_training_thread, get_training_data, 
 
 FPS_AVERAGING_WINDOW = 10
 PROFILING_ENABLED = False
+DEBUG = True
 
 cmap = plt.cm.get_cmap('rainbow')
+
+def debug(text):
+    if DEBUG:
+        print(text)
 
 def get_rgb_val(total_n, index):
     if index == 0:
@@ -218,6 +223,15 @@ class Ui(QtWidgets.QMainWindow):
         obs_length = self.findChild(QtWidgets.QSpinBox, 'inference_obs_length').value()
         fileselection = QtWidgets.QFileDialog.getOpenFileName(self, "Select Model (e.g., model.pkl.epoch30)")
         path = fileselection[0]
+        debug("""
+        pharus_incoming_fps={}
+        listener_ip={}
+        touch_designer_pc_ip={}
+        pred_length={}
+        obs_length={}
+        path={}
+        """.format(pharus_incoming_fps, listener_ip, touch_designer_pc_ip,
+                   pred_length, obs_length, path))
         try:
             client_and_threads = start_inference_server(model_path=path,
                                                     pharus_receiver_ip=listener_ip,
@@ -230,7 +244,8 @@ class Ui(QtWidgets.QMainWindow):
         except Exception:
             self.button.setText("start")
             self.show_error("Selected file is not a model.")
-            return
+
+
 
 
         client = client_and_threads[0]
@@ -238,6 +253,7 @@ class Ui(QtWidgets.QMainWindow):
         t2 = client_and_threads[2]
 
         self.threads.extend([(client, t1), t2])
+        debug("Current threads: {}".format(self.threads))
 
         self.findChild(QtWidgets.QSpinBox, 'pharus_incoming_fps').valueChanged.connect(
             client._listener[0].update_pharus_fps)
@@ -263,6 +279,7 @@ class Ui(QtWidgets.QMainWindow):
         sliding_window_frames_spinbox.valueChanged.emit(sliding_window_frames_spinbox.value())
         sliding_window_frames_output_spinbox.valueChanged.emit(sliding_window_frames_output_spinbox.value())
         enable_output_weights.stateChanged.emit(enable_output_weights.checkState())
+        debug("Finished starting inference server.")
 
     def stop_inference_server(self):
         if self.button.text() == "start":
