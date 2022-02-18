@@ -66,7 +66,7 @@ def start_training_thread(training_folder_name, epochs, pred_length, obs_length,
             "--epochs", epochs, "--pred_length", pred_length, "--obs_length", obs_length, "--save_every", save_every_n_epochs,
             "--batch_size", batch_size, "--lr", learning_rate, "--step_size", step_size]
     if prev_model_path:
-        args.extend(["--load-state", prev_model_path])
+        args.extend(["--load-full-state", prev_model_path])
     process = Popen(args, stdout=PIPE, stderr=PIPE)
     return process
 
