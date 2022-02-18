@@ -55,6 +55,8 @@ This repository implements a GUI for data conversion from a Pharus laser tracker
     - terminal in GUI may freeze
     - when ready, there comes a PopUp
     - destination folder is: ``OUTPUT_BLOCK``
+    - 3.1 continue training
+        - select a `.state` file and the training will continue with the selected data. Training will continue right after the epoch number of the selected file.
 
 ### hard coded config
 - field size: evaluator/server_udp.py PHARUS_FIELD_SIZE
